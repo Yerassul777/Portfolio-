@@ -8,8 +8,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Youth Hub - Opportunities for Young People",
-  description: "Discover olympiads, vacancies, and volunteering opportunities for young people",
+  title: "Portfolio+ - Возможности для молодёжи Казахстана",
+  description: "Открывайте олимпиады, волонтёрство, университеты и вакансии для молодёжи Казахстана",
   generator: "v0.app",
   icons: {
     icon: [

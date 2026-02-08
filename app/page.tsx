@@ -10,21 +10,21 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       {/* Fixed Header - transparent on hero, solid on scroll */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0a0f0d]/80 backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <span className="text-white font-bold text-lg">P+</span>
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-white">Portfolio+</h1>
-              <p className="text-xs text-gray-400 hidden sm:block">Возможности для молодёжи</p>
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Portfolio+</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Возможности для молодёжи</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <AIAssistant />
             <NotesWorkspace />
-            <Button asChild variant="outline" size="sm" className="rounded-full border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800/50 hover:text-white hover:border-emerald-500/50">
+            <Button asChild variant="outline" size="sm" className="rounded-full">
               <Link href="/admin" className="gap-2">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Админ</span>
