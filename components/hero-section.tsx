@@ -11,22 +11,19 @@ export function HeroSection() {
 
   return (
     <>
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0f0d] pt-16">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-green-50 pt-16">
         {/* Animated gradient background */}
         <div className="absolute inset-0">
-          {/* Main gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0a0f0d] via-[#0d1a14] to-[#0f261c]" />
-          
           {/* Animated glow effects */}
-          <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-emerald-600/8 rounded-full blur-[100px] animate-pulse [animation-delay:1.5s]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/5 rounded-full blur-[150px] animate-pulse [animation-delay:0.75s]" />
+          <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-emerald-600/3 rounded-full blur-[100px] animate-pulse [animation-delay:1.5s]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/3 rounded-full blur-[150px] animate-pulse [animation-delay:0.75s]" />
           
           {/* Grid pattern overlay */}
           <div 
-            className="absolute inset-0 opacity-[0.03]"
+            className="absolute inset-0 opacity-[0.02]"
             style={{
-              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+              backgroundImage: `linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)`,
               backgroundSize: '60px 60px'
             }}
           />
@@ -42,13 +39,13 @@ export function HeroSection() {
             {/* Main heading */}
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-1000 [animation-delay:100ms]">
               <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight">
-                <span className="text-white">Найди свою</span>
+                <span className="text-foreground">Найди свою</span>
                 <br />
-                <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 bg-clip-text text-transparent">
                   возможность
                 </span>
               </h1>
-              <p className="text-lg sm:text-xl lg:text-2xl text-gray-400 max-w-3xl mx-auto text-balance leading-relaxed">
+              <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto text-balance leading-relaxed">
                 Олимпиады, соревнования, волонтёрство и лучшие университеты Казахстана — всё в одном месте для построения твоего успешного будущего
               </p>
             </div>
@@ -66,7 +63,7 @@ export function HeroSection() {
                 size="lg" 
                 variant="outline"
                 onClick={scrollToContent}
-                className="text-base px-8 py-6 rounded-full border-2 border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800/50 hover:text-white hover:border-emerald-500/50 transition-all duration-300"
+                className="text-base px-8 py-6 rounded-full transition-all duration-300 hover:scale-105"
               >
                 Узнать больше
               </Button>

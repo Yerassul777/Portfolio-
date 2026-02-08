@@ -1,3 +1,4 @@
+// Portfolio+ Root Layout
 import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
@@ -8,8 +9,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Youth Hub - Opportunities for Young People",
-  description: "Discover olympiads, vacancies, and volunteering opportunities for young people",
+  title: "Portfolio+ - Возможности для молодёжи Казахстана",
+  description: "Открывайте олимпиады, волонтёрство, университеты и вакансии для молодёжи Казахстана",
   generator: "v0.app",
   icons: {
     icon: [
@@ -36,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body className={`font-sans antialiased`}>
         {children}
         <Analytics />
