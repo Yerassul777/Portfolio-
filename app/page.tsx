@@ -1,44 +1,68 @@
-import Image from 'next/image'
+import { OpportunitiesList } from "@/components/opportunities-list"
+import { HeroSection } from "@/components/hero-section"
+import { NotesWorkspace } from "@/components/notes-workspace"
+import { AIAssistant } from "@/components/ai-assistant"
+import { Button } from "@/components/ui/button"
+import { Settings } from "lucide-react"
+import Link from "next/link"
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6">
-      <div className="max-w-4xl w-full space-y-8 text-center">
-        {/* Profile Image with multiple fallback approaches */}
-        <div className="flex justify-center mb-8">
-          <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-border shadow-xl">
-            <Image
-              src="/profile.jpg"
-              alt="Yerassul's Profile"
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 768px) 192px, 192px"
-              onError={(e) => {
-                console.log("[v0] Image loading error, attempting fallback")
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-              }}
-            />
-            {/* CSS fallback background image */}
-            <div 
-              className="absolute inset-0 bg-muted"
-              style={{
-                backgroundImage: 'url(/profile.jpg)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }}
-            />
+    <main className="min-h-screen">
+      {/* Fixed Header - transparent on hero, solid on scroll */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0a0f0d]/80 backdrop-blur-md">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <span className="text-white font-bold text-lg">    P+</span>
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-white">Portfolio+</h1>
+              <p className="text-xs text-gray-400 hidden sm:block">Возможности для молодёжи</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <AIAssistant />
+            <NotesWorkspace />
+            <Button asChild variant="outline" size="sm" className="rounded-full border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800/50 hover:text-white hover:border-emerald-500/50">
+              <Link href="/admin" className="gap-2">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Админ</span>
+              </Link>
+            </Button>
           </div>
         </div>
-        
-        <h1 className="text-6xl font-bold tracking-tight">
-          Yerassul's Portfolio
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          Welcome to my portfolio. This is the starting point for showcasing my work and projects.
-        </p>
-      </div>
+      </header>
+
+      {/* Hero Section */}
+      <HeroSection />
+
+      {/* Opportunities Section */}
+      <section id="opportunities" className="py-16 sm:py-24 bg-background">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <OpportunitiesList />
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t bg-card py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-sm">{"P+"}</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">{"Portfolio+"}</div>
+                <div className="text-xs text-muted-foreground">© 2026 Все права защищены</div>
+              </div>
+            </div>
+            <div className="text-sm text-muted-foreground text-center md:text-right">
+              Платформа возможностей для молодёжи Казахстана
+            </div>
+          </div>
+        </div>
+      </footer>
     </main>
   )
 }
