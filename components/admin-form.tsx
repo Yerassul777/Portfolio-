@@ -97,17 +97,20 @@ export function AdminForm() {
       const insertData: Record<string, string | boolean | null> = {
         title: formData.title,
         description: formData.description,
-        link: formData.link,
-        deadline: formData.deadline || null,
         image_url: formData.imageUrl || null,
       }
 
-      // Add grant_available for universities
+      // Add deadline for all categories EXCEPT universities
+      if (formData.category !== "universities") {
+        insertData.deadline = formData.deadline || null
+      }
+
+      // Add grant_available for universities (Note: check if this column exists in DB)
       if (formData.category === "universities") {
         insertData.grant_available = formData.grantAvailable
       }
 
-      // Add filter values
+      // Add filter values (category, location, format, requirements)
       for (const [key, value] of Object.entries(formData.filterValues)) {
         if (value) insertData[key] = value
       }
