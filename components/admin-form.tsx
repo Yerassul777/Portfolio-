@@ -114,10 +114,13 @@ export function AdminForm() {
 
       console.log("[v0] Inserting data:", { category: formData.category, data: insertData })
       
-      const { error } = await supabase.from(formData.category).insert(insertData)
+      const { data: result, error } = await supabase.from(formData.category).insert(insertData)
+
+      console.log("[v0] Supabase result:", { result, error })
 
       if (error) {
-        console.log("[v0] Supabase error:", error)
+        console.log("[v0] Supabase error details:", JSON.stringify(error, null, 2))
+        setMessage({ type: "error", text: `Ошибка: ${error.message || 'Неизвестная ошибка'}` })
         throw error
       }
 
