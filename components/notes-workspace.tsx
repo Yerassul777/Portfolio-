@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -16,7 +16,7 @@ import {
   GraduationCap,
   Sparkles,
   Save,
-  X
+  X,
 } from "lucide-react"
 
 interface Note {
@@ -103,7 +103,7 @@ export function NotesWorkspace() {
       </SheetTrigger>
       <SheetContent 
         side="right" 
-        className="w-full sm:w-[90vw] md:w-[600px] sm:max-w-[600px] bg-[#0d1210] border-gray-800 p-0 flex flex-col overflow-hidden"
+        className="w-full sm:w-[90vw] md:w-[600px] sm:max-w-[600px] bg-[#0d1210] border-gray-800 p-0 flex flex-col overflow-hidden [&>button]:hidden"
       >
         {/* Header */}
         <SheetHeader className="px-6 py-4 border-b border-gray-800 bg-[#0a0f0d]">
@@ -114,6 +114,16 @@ export function NotesWorkspace() {
               </div>
               Рабочий стол заметок
             </SheetTitle>
+            <SheetClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Закрыть</span>
+              </Button>
+            </SheetClose>
           </div>
           <p className="text-sm text-gray-400 mt-1">
             Записывайте свои цели, достижения и планы
