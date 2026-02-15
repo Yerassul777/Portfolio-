@@ -49,7 +49,7 @@ export function OpportunityCard({ opportunity, category }: OpportunityCardProps)
 
   return (
     <>
-      <Card className="group flex flex-col h-full transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 border-2 hover:border-primary/20 overflow-hidden rounded-xl">
+      <Card className="group flex flex-col h-full transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 border border-emerald-500/10 hover:border-emerald-500/25 overflow-hidden rounded-xl bg-[#0d1a14]/60 backdrop-blur-sm">
         {/* Image Section */}
         {hasImage && (
           <div className="relative h-48 overflow-hidden">
