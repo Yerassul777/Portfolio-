@@ -6,12 +6,20 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] API POST request received")
+    
     const { category, data } = await request.json()
+    
+    console.log("[v0] API parsed data:", { category, data })
 
     if (!category || !data) {
+      console.log("[v0] API missing required fields")
       return NextResponse.json({ error: "Missing category or data" }, { status: 400 })
     }
 
+    console.log("[v0] API creating Supabase client with URL:", supabaseUrl)
+    console.log("[v0] API has service key:", !!supabaseServiceKey)
+    
     // Use service role client to bypass PostgREST cache
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -20,18 +28,21 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log("[v0] API inserting data:", { category, data })
+    console.log("[v0] API inserting data into table:", category)
 
     const { data: result, error } = await supabase
       .from(category)
       .insert(data)
       .select()
 
+    console.log("[v0] API Supabase response:", { result, error })
+
     if (error) {
       console.error("[v0] API Supabase error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log("[v0] API Success! Inserted:", result)
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
     console.error("[v0] API error:", error)
