@@ -3,7 +3,6 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,17 +26,13 @@ import {
 } from "@/components/ui/alert-dialog"
 
 async function fetchAllSessions(): Promise<{ category: Category; items: Opportunity[] }[]> {
-  const supabase = getSupabaseBrowserClient()
   const categories: Category[] = ["olympiads", "competitions", "volunteering", "universities"]
   
   const results = await Promise.all(
     categories.map(async (category) => {
-      const { data, error } = await supabase
-        .from(category)
-        .select("*")
-        .order("created_at", { ascending: false })
-      
-      if (error) throw error
+      const res = await fetch(`/api/sessions?category=${category}`)
+      if (!res.ok) throw new Error(`Failed to fetch ${category}`)
+      const { data } = await res.json()
       return { category, items: data || [] }
     })
   )
@@ -93,7 +88,6 @@ export function AdminForm() {
     setMessage(null)
 
     try {
-      const supabase = getSupabaseBrowserClient()
       const insertData: Record<string, string | boolean | null> = {
         title: formData.title,
         description: formData.description,

@@ -4,48 +4,63 @@ import { createClient } from "@supabase/supabase-js"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-export async function POST(request: NextRequest) {
-  try {
-    console.log("[v0] API POST request received")
-    
-    const { category, data } = await request.json()
-    
-    console.log("[v0] API parsed data:", { category, data })
+function getServiceClient() {
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
 
-    if (!category || !data) {
-      console.log("[v0] API missing required fields")
-      return NextResponse.json({ error: "Missing category or data" }, { status: 400 })
+const VALID_CATEGORIES = ["olympiads", "competitions", "volunteering", "universities"]
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const category = searchParams.get("category")
+
+    if (!category || !VALID_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 })
     }
 
-    console.log("[v0] API creating Supabase client with URL:", supabaseUrl)
-    console.log("[v0] API has service key:", !!supabaseServiceKey)
-    
-    // Use service role client to bypass PostgREST cache
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
+    const supabase = getServiceClient()
+    const { data, error } = await supabase
+      .from(category)
+      .select("*")
+      .order("created_at", { ascending: false })
 
-    console.log("[v0] API inserting data into table:", category)
+    if (error) {
+      console.error("[v0] API GET error:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
+    return NextResponse.json({ data: data || [] })
+  } catch (error) {
+    console.error("[v0] API GET error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { category, data } = await request.json()
+
+    if (!category || !data || !VALID_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: "Missing or invalid category/data" }, { status: 400 })
+    }
+
+    const supabase = getServiceClient()
     const { data: result, error } = await supabase
       .from(category)
       .insert(data)
       .select()
 
-    console.log("[v0] API Supabase response:", { result, error })
-
     if (error) {
-      console.error("[v0] API Supabase error:", error)
+      console.error("[v0] API POST error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    console.log("[v0] API Success! Inserted:", result)
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
-    console.error("[v0] API error:", error)
+    console.error("[v0] API POST error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -54,31 +69,24 @@ export async function DELETE(request: NextRequest) {
   try {
     const { category, id } = await request.json()
 
-    if (!category || !id) {
-      return NextResponse.json({ error: "Missing category or id" }, { status: 400 })
+    if (!category || !id || !VALID_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: "Missing or invalid category/id" }, { status: 400 })
     }
 
-    // Use service role client to bypass PostgREST cache
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-
+    const supabase = getServiceClient()
     const { error } = await supabase
       .from(category)
       .delete()
       .eq("id", id)
 
     if (error) {
-      console.error("[v0] API Supabase delete error:", error)
+      console.error("[v0] API DELETE error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] API error:", error)
+    console.error("[v0] API DELETE error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
