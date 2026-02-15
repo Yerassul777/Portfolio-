@@ -120,6 +120,9 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-gradient-to-b from-[#0a0f0d] via-[#0d1210] to-[#0a0f0d] text-foreground min-h-screen;
+  }
+  html {
+    @apply scroll-smooth;
   }
 }
