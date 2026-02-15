@@ -199,7 +199,7 @@ export function AdminForm() {
                 <Plus className="h-5 w-5" />
                 Добавить новый сеанс
               </CardTitle>
-              <CardDescription>
+              <CardDescription suppressHydrationWarning>
                 Заполните информацию и выберите параметры фильтрации
               </CardDescription>
             </CardHeader>
