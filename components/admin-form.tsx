@@ -114,11 +114,17 @@ export function AdminForm() {
 
       console.log("[v0] Inserting data:", { category: formData.category, data: insertData })
       
-      const { error } = await supabase.from(formData.category).insert(insertData)
+      // Use API route to bypass PostgREST cache issues
+      const response = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: formData.category, data: insertData })
+      })
 
-      if (error) {
-        console.log("[v0] Supabase error:", error)
-        throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log("[v0] API error:", errorData)
+        throw new Error(errorData.error || "Failed to insert")
       }
 
       setMessage({ type: "success", text: "Сеанс успешно добавлен!" })
@@ -150,13 +156,17 @@ export function AdminForm() {
     setDeleteLoading(sessionToDelete.id)
     
     try {
-      const supabase = getSupabaseBrowserClient()
-      const { error } = await supabase
-        .from(sessionToDelete.category)
-        .delete()
-        .eq("id", sessionToDelete.id)
+      // Use API route to bypass PostgREST cache issues
+      const response = await fetch("/api/sessions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: sessionToDelete.category, id: sessionToDelete.id })
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete")
+      }
 
       setMessage({ type: "success", text: "Сеанс успешно удалён!" })
       
