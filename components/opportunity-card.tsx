@@ -1,15 +1,21 @@
+"use client"
+
+import { useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, ExternalLink, MapPin, Monitor, GraduationCap } from "lucide-react"
-import type { Opportunity } from "@/lib/types"
+import { OpportunityDetailsDialog } from "@/components/opportunity-details-dialog"
+import type { Opportunity, Category } from "@/lib/types"
 import { KAZAKHSTAN_CITIES } from "@/lib/types"
 
 interface OpportunityCardProps {
   opportunity: Opportunity
+  category: Category
 }
 
-export function OpportunityCard({ opportunity }: OpportunityCardProps) {
+export function OpportunityCard({ opportunity, category }: OpportunityCardProps) {
+  const [dialogOpen, setDialogOpen] = useState(false)
   const isExpired = opportunity.deadline ? new Date(opportunity.deadline) < new Date() : false
   const hasImage = !!opportunity.image_url
 
@@ -122,13 +128,22 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         ) : (
           <Badge variant="outline" className="text-muted-foreground">Без дедлайна</Badge>
         )}
-        <Button asChild size="sm" className="gap-1.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-          <a href={opportunity.link} target="_blank" rel="noopener noreferrer">
-            Подробнее
-            <ExternalLink className="h-3 w-3" />
-          </a>
+        <Button 
+          size="sm" 
+          className="gap-1.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+          onClick={() => setDialogOpen(true)}
+        >
+          Подробнее
+          <ExternalLink className="h-3 w-3" />
         </Button>
       </CardFooter>
+
+      <OpportunityDetailsDialog 
+        opportunity={opportunity}
+        category={category}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </Card>
   )
 }

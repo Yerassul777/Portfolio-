@@ -14,7 +14,7 @@ export default function Home() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <span className="text-white font-bold text-lg">P+</span>
+              <span className="text-white font-bold text-lg">    P+</span>
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-white">Portfolio+</h1>
@@ -50,10 +50,10 @@ export default function Home() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">P+</span>
+                <span className="text-primary-foreground font-bold text-sm">{"P+"}</span>
               </div>
               <div>
-                <div className="text-sm font-semibold">Portfolio+</div>
+                <div className="text-sm font-semibold">{"Portfolio+"}</div>
                 <div className="text-xs text-muted-foreground">© 2026 Все права защищены</div>
               </div>
             </div>
