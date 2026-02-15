@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react"
 import useSWR from "swr"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { OpportunityCard } from "@/components/opportunity-card"
 import { CategoryTabs } from "@/components/category-tabs"
 import { FilterDialog } from "@/components/filter-dialog"
@@ -12,10 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import type { Category, Opportunity } from "@/lib/types"
 
 async function fetchOpportunities(category: Category): Promise<Opportunity[]> {
-  const supabase = getSupabaseBrowserClient()
-  const { data, error } = await supabase.from(category).select("*").order("created_at", { ascending: false })
-
-  if (error) throw error
+  const res = await fetch(`/api/sessions?category=${category}`)
+  if (!res.ok) throw new Error(`Failed to fetch ${category}`)
+  const { data } = await res.json()
   return data || []
 }
 
@@ -79,7 +77,7 @@ export function OpportunitiesList() {
       ) : filteredOpportunities.length > 0 ? (
         <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredOpportunities.map((opp) => (
-            <OpportunityCard key={opp.id} opportunity={opp} />
+            <OpportunityCard key={opp.id} opportunity={opp} category={category} />
           ))}
         </div>
       ) : (

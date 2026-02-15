@@ -40,38 +40,38 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #0a0f0d;
+  --foreground: #f0fdf4;
+  --card: rgba(13, 26, 20, 0.6);
+  --card-foreground: #f0fdf4;
+  --popover: #0d1a14;
+  --popover-foreground: #f0fdf4;
+  --primary: #34d399;
+  --primary-foreground: #022c22;
+  --secondary: rgba(16, 32, 24, 0.8);
+  --secondary-foreground: #d1fae5;
+  --muted: rgba(16, 32, 24, 0.6);
+  --muted-foreground: #9ca3af;
+  --accent: rgba(52, 211, 153, 0.15);
+  --accent-foreground: #d1fae5;
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --border: rgba(52, 211, 153, 0.12);
+  --input: rgba(52, 211, 153, 0.12);
+  --ring: rgba(52, 211, 153, 0.3);
+  --chart-1: #34d399;
+  --chart-2: #6ee7b7;
+  --chart-3: #a7f3d0;
+  --chart-4: #059669;
+  --chart-5: #047857;
+  --sidebar: #0a0f0d;
+  --sidebar-foreground: #f0fdf4;
+  --sidebar-primary: #34d399;
+  --sidebar-primary-foreground: #022c22;
+  --sidebar-accent: rgba(52, 211, 153, 0.15);
+  --sidebar-accent-foreground: #d1fae5;
+  --sidebar-border: rgba(52, 211, 153, 0.12);
+  --sidebar-ring: rgba(52, 211, 153, 0.3);
 }
 
 @theme inline {
