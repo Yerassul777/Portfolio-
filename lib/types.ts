@@ -17,7 +17,6 @@ export interface Opportunity {
   field?: string | null
   requirements?: string | null
   grant_available?: boolean | null
-  rating?: number | null
 }
 
 export type Category = "olympiads" | "competitions" | "volunteering" | "universities"

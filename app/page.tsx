@@ -2,9 +2,6 @@ import { OpportunitiesList } from "@/components/opportunities-list"
 import { HeroSection } from "@/components/hero-section"
 import { NotesWorkspace } from "@/components/notes-workspace"
 import { AIAssistant } from "@/components/ai-assistant"
-import { Button } from "@/components/ui/button"
-import { Settings } from "lucide-react"
-import Link from "next/link"
 
 export default function Home() {
   return (
@@ -38,12 +35,6 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <AIAssistant />
             <NotesWorkspace />
-            <Button asChild variant="outline" size="sm" className="rounded-full border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800/50 hover:text-white hover:border-emerald-500/50">
-              <Link href="/admin" className="gap-2">
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Админ</span>
-              </Link>
-            </Button>
           </div>
         </div>
       </header>

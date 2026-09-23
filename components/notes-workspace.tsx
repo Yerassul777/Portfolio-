@@ -39,7 +39,11 @@ export function NotesWorkspace() {
   const [notes, setNotes] = useState<Note[]>([])
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [newNote, setNewNote] = useState({ title: "", content: "", category: "goals" as const })
+  const [newNote, setNewNote] = useState<{
+    title: string
+    content: string
+    category: Note["category"]
+  }>({ title: "", content: "", category: "goals" })
 
   // Load notes from localStorage
   useEffect(() => {

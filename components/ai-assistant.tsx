@@ -24,6 +24,7 @@ export function AIAssistant() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -66,6 +67,7 @@ export function AIAssistant() {
     const updatedMessages = [...messages, userMessage]
     saveMessages(updatedMessages)
     setInput("")
+    setError(null)
     setIsLoading(true)
 
     try {
@@ -101,12 +103,11 @@ export function AIAssistant() {
       }
       saveMessages([...updatedMessages, assistantMessage])
     } catch (error) {
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "Извините, произошла ошибка. Убедитесь, что OPENAI_API_KEY настроен в переменных окружения.",
-        timestamp: new Date().toISOString(),
-      }
-      saveMessages([...updatedMessages, errorMessage])
+      setError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Не удалось получить ответ. Попробуйте ещё раз."
+      )
     } finally {
       setIsLoading(false)
     }
@@ -264,6 +265,15 @@ export function AIAssistant() {
                     </div>
                   </CardContent>
                 </Card>
+              </div>
+            )}
+
+            {error && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+              >
+                {error}
               </div>
             )}
 

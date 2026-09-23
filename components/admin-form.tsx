@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon } from "lucide-react"
+import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, Lock } from "lucide-react"
 import { FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opportunity } from "@/lib/types"
 import useSWR, { mutate } from "swr"
 import {
@@ -24,6 +24,35 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+// Phase 0 stopgap: the admin types a shared secret once per browser session.
+// It is deliberately NOT a NEXT_PUBLIC_ env var, which would ship it to every
+// visitor in the client bundle. Replaced by Supabase Auth in Phase 1.
+const TOKEN_STORAGE_KEY = "admin-token"
+
+function readStoredToken(): string {
+  try {
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY) || ""
+  } catch {
+    return ""
+  }
+}
+
+function storeToken(token: string) {
+  try {
+    sessionStorage.setItem(TOKEN_STORAGE_KEY, token)
+  } catch {
+    // Private mode blocks sessionStorage; the token still lives in React state.
+  }
+}
+
+function clearStoredToken() {
+  try {
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+  } catch {
+    // Nothing to do.
+  }
+}
 
 async function fetchAllSessions(): Promise<{ category: Category; items: Opportunity[] }[]> {
   const categories: Category[] = ["olympiads", "competitions", "volunteering", "universities"]
@@ -46,6 +75,14 @@ export function AdminForm() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; category: Category; title: string } | null>(null)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [adminToken, setAdminToken] = useState("")
+  const [tokenInput, setTokenInput] = useState("")
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    setAdminToken(readStoredToken())
+    setHydrated(true)
+  }, [])
 
   const { data: allSessions, isLoading: sessionsLoading } = useSWR("admin-sessions", fetchAllSessions)
 
@@ -106,19 +143,20 @@ export function AdminForm() {
         if (value) insertData[key] = value
       }
 
-      console.log("[v0] Inserting data:", { category: formData.category, data: insertData })
-      
       // Use API route to bypass PostgREST cache issues
       const response = await fetch("/api/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
         body: JSON.stringify({ category: formData.category, data: insertData })
       })
 
+      if (response.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
       if (!response.ok) {
-        const errorData = await response.json()
-        console.log("[v0] API error:", errorData)
-        throw new Error(errorData.error || "Failed to insert")
+        throw new Error("Failed to insert")
       }
 
       setMessage({ type: "success", text: "Сеанс успешно добавлен!" })
@@ -153,13 +191,17 @@ export function AdminForm() {
       // Use API route to bypass PostgREST cache issues
       const response = await fetch("/api/sessions", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
         body: JSON.stringify({ category: sessionToDelete.category, id: sessionToDelete.id })
       })
 
+      if (response.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to delete")
+        throw new Error("Failed to delete")
       }
 
       setMessage({ type: "success", text: "Сеанс успешно удалён!" })
@@ -178,8 +220,93 @@ export function AdminForm() {
 
   const totalSessions = allSessions?.reduce((acc, cat) => acc + cat.items.length, 0) || 0
 
+  function handleUnauthorized() {
+    clearStoredToken()
+    setAdminToken("")
+    setTokenInput("")
+    setMessage({ type: "error", text: "Неверный токен доступа. Введите его заново." })
+  }
+
+  if (!hydrated) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!adminToken) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5" />
+            Доступ к админ-панели
+          </CardTitle>
+          <CardDescription>
+            Введите токен администратора. Он хранится только в этой вкладке браузера
+            и стирается при её закрытии.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const token = tokenInput.trim()
+              if (!token) return
+              storeToken(token)
+              setAdminToken(token)
+              setTokenInput("")
+              setMessage(null)
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="admin-token">Токен</Label>
+              <Input
+                id="admin-token"
+                type="password"
+                autoComplete="off"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="••••••••••••"
+                required
+              />
+            </div>
+
+            {message && (
+              <div className="p-3 rounded-lg text-sm bg-destructive/10 text-destructive">
+                {message.text}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={!tokenInput.trim()}>
+              Войти
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 text-muted-foreground"
+          onClick={() => {
+            clearStoredToken()
+            setAdminToken("")
+            setMessage(null)
+          }}
+        >
+          <Lock className="h-3.5 w-3.5" />
+          Выйти
+        </Button>
+      </div>
+
       <Tabs defaultValue="add" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="add" className="gap-2">

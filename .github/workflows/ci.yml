@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Non-blocking for now: `next.config.mjs` still sets ignoreBuildErrors,
+      # so this reports drift without gating the build. Make it blocking once
+      # the codebase stays green (see Phase 3 of the plan).
+      - name: Typecheck
+        continue-on-error: true
+        run: pnpm exec tsc --noEmit
+
+      - name: Build
+        run: pnpm exec next build
