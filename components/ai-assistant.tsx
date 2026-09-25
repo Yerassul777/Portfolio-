@@ -5,7 +5,20 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet"
-import { Bot, Send, Loader2, Sparkles, TrendingUp, X } from "lucide-react"
+import { Bot, Send, Loader2, Sparkles, TrendingUp, X, LogOut } from "lucide-react"
+import { AuthForm } from "@/components/auth-form"
+import { getAccessToken, useAuth } from "@/components/auth-provider"
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+
+type Quota = { used: number; limit: number }
+
+function messagesWord(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return "сообщение"
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "сообщения"
+  return "сообщений"
+}
 
 interface Message {
   role: "user" | "assistant"
@@ -50,6 +63,8 @@ function linkify(text: string) {
 }
 
 export function AIAssistant() {
+  const { user, loading: authLoading, signOut } = useAuth()
+  const [quota, setQuota] = useState<Quota | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -78,6 +93,31 @@ export function AIAssistant() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isLoading])
+
+  // Today's allowance, so the limit is visible before it is hit. RLS returns
+  // only this user's rows; the server remains the one that enforces it.
+  useEffect(() => {
+    if (!user) {
+      setQuota(null)
+      return
+    }
+    let cancelled = false
+    const supabase = getSupabaseBrowserClient()
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Almaty" })
+    Promise.all([
+      supabase.from("ai_usage").select("message_count").eq("usage_date", today).maybeSingle(),
+      supabase.from("profiles").select("plans(daily_ai_messages)").maybeSingle(),
+    ]).then(([usage, profile]) => {
+      if (cancelled) return
+      const plan = (profile.data as { plans?: { daily_ai_messages?: number } } | null)?.plans
+      if (typeof plan?.daily_ai_messages === "number") {
+        setQuota({ used: usage.data?.message_count ?? 0, limit: plan.daily_ai_messages })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   const saveMessages = (newMessages: Message[]) => {
     localStorage.setItem("ai-chat-history", JSON.stringify(newMessages))
@@ -109,9 +149,14 @@ export function AIAssistant() {
           ).join("\n\n---\n\n")
         : ""
 
+      const token = await getAccessToken()
+      if (!token) {
+        throw new Error("Сессия истекла. Войдите снова.")
+      }
+
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
           notesContext,
@@ -120,10 +165,15 @@ export function AIAssistant() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to get response")
+        if (errorData.quota) setQuota(errorData.quota)
+        if (errorData.code === "auth_required") {
+          throw new Error("Сессия истекла. Войдите снова.")
+        }
+        throw new Error(errorData.error || "Не удалось получить ответ. Попробуйте ещё раз.")
       }
 
       const data = await response.json()
+      if (data.quota) setQuota(data.quota)
 
       const assistantMessage: Message = {
         role: "assistant",
@@ -174,7 +224,7 @@ export function AIAssistant() {
               ИИ Помощник
             </SheetTitle>
             <div className="flex items-center gap-2">
-              {messages.length > 0 && (
+              {user && messages.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -202,9 +252,39 @@ export function AIAssistant() {
               ? `Анализирую ${notes.length} ${notes.length === 1 ? "заметку" : notes.length < 5 ? "заметки" : "заметок"} для персональных советов`
               : "Создайте заметки, чтобы я давал персональные советы"}
           </p>
+          {user && (
+            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500">
+              <span className="truncate">{user.email}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setMessages([])
+                  setError(null)
+                  signOut()
+                }}
+                className="flex shrink-0 items-center gap-1 transition-colors hover:text-gray-300"
+              >
+                <LogOut className="h-3 w-3" />
+                Выйти
+              </button>
+            </div>
+          )}
         </SheetHeader>
 
-        {/* Messages area -- native scroll */}
+        {!user ? (
+          <div className="flex-1 overflow-y-auto px-6 py-10 min-h-0">
+            {authLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+              </div>
+            ) : (
+              <AuthForm
+                title="Войдите, чтобы пользоваться ИИ-помощником"
+                description="Это бесплатно. Вход защищает помощника от ботов — так он остаётся бесплатным для школьников."
+              />
+            )}
+          </div>
+        ) : (
         <div
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto px-6 py-4 min-h-0"
@@ -309,8 +389,10 @@ export function AIAssistant() {
             <div ref={messagesEndRef} />
           </div>
         </div>
+        )}
 
         {/* Input */}
+        {user && (
         <div className="px-6 py-4 border-t border-gray-800 bg-[#0a0f0d] shrink-0">
           <div className="flex gap-2">
             <Textarea
@@ -340,7 +422,15 @@ export function AIAssistant() {
               ? `${notes.length} ${notes.length === 1 ? "заметка" : notes.length < 5 ? "заметки" : "заметок"} используется для контекста`
               : "Добавьте заметки для персональных рекомендаций"}
           </p>
+          {quota && (
+            <p className={`text-xs mt-1 ${quota.used >= quota.limit ? "text-amber-400" : "text-gray-500"}`}>
+              {quota.used >= quota.limit
+                ? "Лимит на сегодня исчерпан — возвращайтесь завтра"
+                : `Сегодня осталось ${quota.limit - quota.used} ${messagesWord(quota.limit - quota.used)} из ${quota.limit}`}
+            </p>
+          )}
         </div>
+        )}
       </SheetContent>
     </Sheet>
   )

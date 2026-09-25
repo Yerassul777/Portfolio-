@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createPublicClient, createUserClient } from "@/lib/supabase-server"
 import {
   CATEGORY_LABELS,
   FILTER_CONFIGS,
@@ -11,13 +11,21 @@ import { matchesSearch, searchTokens } from "@/lib/search"
 const MODEL = "gpt-4o-mini"
 const MAX_TOKENS = 700
 
+// gpt-4o-mini prices, USD per token. Recorded per call so pricing decisions
+// can rest on real numbers.
+const PRICE_INPUT = 0.15 / 1_000_000
+const PRICE_CACHED_INPUT = 0.075 / 1_000_000
+const PRICE_OUTPUT = 0.6 / 1_000_000
+
 // Cost guards. Every request is bounded, so a single caller cannot turn one
-// message into an unbounded bill. Phase 1 replaces the IP limit with a
-// per-account daily quota in the `ai_usage` table.
+// message into an unbounded bill. The real limit is the per-account daily
+// quota enforced in the database (consume_ai_message); the IP limit is only a
+// backstop against account farming, set high enough that a school computer
+// lab sharing one address is not locked out.
 const MAX_HISTORY_MESSAGES = 12
 const MAX_MESSAGE_CHARS = 2000
 const MAX_NOTES_CONTEXT_CHARS = 4000
-const RATE_LIMIT_MAX = 20
+const RATE_LIMIT_MAX = 100
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 // Each round is one more OpenAI call; after the last one the model must answer.
 const MAX_TOOL_ROUNDS = 3
@@ -150,15 +158,6 @@ function buildSearchTool() {
 
 const SEARCH_TOOL = buildSearchTool()
 
-// Read-only access through the publishable key: RLS exposes the catalogue to
-// it and nothing else. The AI path never needs the service-role key.
-function getCatalogClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY
-  if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-}
-
 function todayInAlmaty(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Almaty" })
 }
@@ -179,9 +178,10 @@ async function searchOpportunities(args: Record<string, unknown>) {
     return { error: "Неизвестная категория" }
   }
 
-  const client = getCatalogClient()
+  // Read-only, as the public: RLS exposes the catalogue and nothing else.
+  const client = createPublicClient()
   if (!client) {
-    console.error("Catalogue search unavailable: SUPABASE_PUBLISHABLE_KEY is not set")
+    console.error("Catalogue search unavailable: Supabase URL or publishable key is not set")
     return { error: "Каталог временно недоступен" }
   }
 
@@ -273,11 +273,13 @@ type ChatMessage =
 
 type AssistantReply = { content: string | null; tool_calls?: ToolCall[] }
 
+type Usage = { input: number; cachedInput: number; output: number }
+
 async function callOpenAI(
   apiKey: string,
   messages: ChatMessage[],
   toolChoice: "auto" | "none"
-): Promise<AssistantReply | null> {
+): Promise<{ reply: AssistantReply; usage: Usage } | null> {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -302,7 +304,26 @@ async function callOpenAI(
   }
 
   const data = await response.json()
-  return data.choices?.[0]?.message ?? null
+  const reply = data.choices?.[0]?.message
+  if (!reply) return null
+  return {
+    reply,
+    usage: {
+      input: data.usage?.prompt_tokens ?? 0,
+      cachedInput: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+      output: data.usage?.completion_tokens ?? 0,
+    },
+  }
+}
+
+function costUsd(usage: Usage): number {
+  const uncached = Math.max(usage.input - usage.cachedInput, 0)
+  return uncached * PRICE_INPUT + usage.cachedInput * PRICE_CACHED_INPUT + usage.output * PRICE_OUTPUT
+}
+
+function bearerToken(req: Request): string | null {
+  const match = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1] : null
 }
 
 async function runToolCall(call: ToolCall) {
@@ -356,8 +377,20 @@ export async function POST(req: Request) {
     const { allowed, retryAfter } = rateLimit(clientKey(req))
     if (!allowed) {
       return Response.json(
-        { error: "Слишком много запросов. Попробуйте через час." },
+        { error: "Слишком много запросов. Попробуйте через час.", code: "rate_limited" },
         { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      )
+    }
+
+    // The assistant is for signed-in users only: every call costs money, and an
+    // account is what the daily quota is attached to.
+    const token = bearerToken(req)
+    const userClient = token ? createUserClient(token) : null
+    const { data: auth } = userClient && token ? await userClient.auth.getUser(token) : { data: null }
+    if (!userClient || !auth?.user) {
+      return Response.json(
+        { error: "Войдите, чтобы пользоваться ИИ-помощником.", code: "auth_required" },
+        { status: 401 }
       )
     }
 
@@ -365,6 +398,26 @@ export async function POST(req: Request) {
     const messages = normalizeMessages(body?.messages)
     if (!messages) {
       return Response.json({ error: "Invalid messages" }, { status: 400 })
+    }
+
+    // Reserved before calling OpenAI and never refunded: a refund path would be
+    // callable by users too, and then the quota could be reset at will.
+    const { data: quotaRows, error: quotaError } = await userClient.rpc("consume_ai_message")
+    const quotaRow = Array.isArray(quotaRows) ? quotaRows[0] : null
+    if (quotaError || !quotaRow) {
+      console.error("Quota check failed:", quotaError)
+      return Response.json({ error: FAILED }, { status: 500 })
+    }
+    const quota = { used: quotaRow.used as number, limit: quotaRow.daily_limit as number }
+    if (!quotaRow.allowed) {
+      return Response.json(
+        {
+          error: `Лимит на сегодня исчерпан: ${quota.limit} сообщений в день. Возвращайтесь завтра!`,
+          code: "quota_exceeded",
+          quota,
+        },
+        { status: 429 }
+      )
     }
 
     const notesContext =
@@ -376,27 +429,46 @@ export async function POST(req: Request) {
       { role: "system", content: buildSystemPrompt(notesContext) },
       ...messages,
     ]
+    const total: Usage = { input: 0, cachedInput: 0, output: 0 }
+
+    const recordUsage = async () => {
+      const { error } = await userClient.rpc("record_ai_usage", {
+        p_input_tokens: total.input,
+        p_output_tokens: total.output,
+        p_cost_usd: Number(costUsd(total).toFixed(6)),
+      })
+      if (error) console.error("Recording AI usage failed:", error)
+    }
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
       const toolsAllowed = round < MAX_TOOL_ROUNDS
-      const reply = await callOpenAI(apiKey, conversation, toolsAllowed ? "auto" : "none")
-      if (!reply) {
+      const result = await callOpenAI(apiKey, conversation, toolsAllowed ? "auto" : "none")
+      if (!result) {
+        await recordUsage()
         return Response.json({ error: FAILED }, { status: 502 })
       }
 
+      const { reply, usage } = result
+      total.input += usage.input
+      total.cachedInput += usage.cachedInput
+      total.output += usage.output
+
       if (!toolsAllowed || !reply.tool_calls?.length) {
+        await recordUsage()
         return Response.json({
           message: reply.content || "Извините, я не смог сгенерировать ответ.",
+          quota,
         })
       }
 
       conversation.push({ role: "assistant", content: reply.content, tool_calls: reply.tool_calls })
       for (const call of reply.tool_calls) {
-        const result = await runToolCall(call)
-        conversation.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) })
+        const toolResult = await runToolCall(call)
+        conversation.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(toolResult) })
       }
     }
 
+    await recordUsage()
     return Response.json({ error: FAILED }, { status: 502 })
   } catch (error) {
     console.error("AI assistant error:", error)

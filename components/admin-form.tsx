@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, Lock } from "lucide-react"
+import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, LogOut, ShieldAlert } from "lucide-react"
 import { FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opportunity } from "@/lib/types"
 import useSWR, { mutate } from "swr"
+import { AuthForm } from "@/components/auth-form"
+import { useAuth } from "@/components/auth-provider"
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,35 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-// Phase 0 stopgap: the admin types a shared secret once per browser session.
-// It is deliberately NOT a NEXT_PUBLIC_ env var, which would ship it to every
-// visitor in the client bundle. Replaced by Supabase Auth in Phase 1.
-const TOKEN_STORAGE_KEY = "admin-token"
-
-function readStoredToken(): string {
-  try {
-    return sessionStorage.getItem(TOKEN_STORAGE_KEY) || ""
-  } catch {
-    return ""
-  }
-}
-
-function storeToken(token: string) {
-  try {
-    sessionStorage.setItem(TOKEN_STORAGE_KEY, token)
-  } catch {
-    // Private mode blocks sessionStorage; the token still lives in React state.
-  }
-}
-
-function clearStoredToken() {
-  try {
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-  } catch {
-    // Nothing to do.
-  }
-}
 
 async function fetchAllSessions(): Promise<{ category: Category; items: Opportunity[] }[]> {
   const categories: Category[] = ["olympiads", "competitions", "volunteering", "universities"]
@@ -70,19 +43,31 @@ async function fetchAllSessions(): Promise<{ category: Category; items: Opportun
 }
 
 export function AdminForm() {
-  const router = useRouter()
+  const { user, loading: authLoading, signOut } = useAuth()
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; category: Category; title: string } | null>(null)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [adminToken, setAdminToken] = useState("")
-  const [tokenInput, setTokenInput] = useState("")
-  const [hydrated, setHydrated] = useState(false)
 
+  // This only decides what to render. The database enforces the same rule on
+  // every write through RLS, so a tampered client still cannot write.
   useEffect(() => {
-    setAdminToken(readStoredToken())
-    setHydrated(true)
-  }, [])
+    if (!user) {
+      setIsAdmin(null)
+      return
+    }
+    let cancelled = false
+    setIsAdmin(null)
+    getSupabaseBrowserClient()
+      .rpc("is_admin")
+      .then(({ data, error }) => {
+        if (!cancelled) setIsAdmin(!error && data === true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   const { data: allSessions, isLoading: sessionsLoading } = useSWR("admin-sessions", fetchAllSessions)
 
@@ -143,20 +128,17 @@ export function AdminForm() {
         if (value) insertData[key] = value
       }
 
-      // Use API route to bypass PostgREST cache issues
-      const response = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
-        body: JSON.stringify({ category: formData.category, data: insertData })
-      })
+      const { error } = await getSupabaseBrowserClient().from(formData.category).insert(insertData)
 
-      if (response.status === 401) {
-        handleUnauthorized()
+      if (error) {
+        setMessage({
+          type: "error",
+          text:
+            error.code === "42501"
+              ? "Нет прав администратора для этой операции."
+              : "Не удалось добавить сеанс. Попробуйте ещё раз.",
+        })
         return
-      }
-
-      if (!response.ok) {
-        throw new Error("Failed to insert")
       }
 
       setMessage({ type: "success", text: "Сеанс успешно добавлен!" })
@@ -174,7 +156,6 @@ export function AdminForm() {
       // Refresh sessions list
       mutate("admin-sessions")
       mutate(["opportunities", formData.category])
-      router.refresh()
     } catch (err) {
       setMessage({ type: "error", text: "Не удалось добавить сеанс. Попробуйте ещё раз." })
     } finally {
@@ -188,28 +169,26 @@ export function AdminForm() {
     setDeleteLoading(sessionToDelete.id)
     
     try {
-      // Use API route to bypass PostgREST cache issues
-      const response = await fetch("/api/sessions", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
-        body: JSON.stringify({ category: sessionToDelete.category, id: sessionToDelete.id })
-      })
+      // RLS turns a disallowed delete into "0 rows" rather than an error, so the
+      // count is what tells success from a silent refusal.
+      const { error, count } = await getSupabaseBrowserClient()
+        .from(sessionToDelete.category)
+        .delete({ count: "exact" })
+        .eq("id", sessionToDelete.id)
 
-      if (response.status === 401) {
-        handleUnauthorized()
+      if (error || count === 0) {
+        setMessage({
+          type: "error",
+          text: count === 0 ? "Запись не удалена: нет прав или она уже удалена." : "Не удалось удалить сеанс. Попробуйте ещё раз.",
+        })
         return
       }
 
-      if (!response.ok) {
-        throw new Error("Failed to delete")
-      }
-
       setMessage({ type: "success", text: "Сеанс успешно удалён!" })
-      
+
       // Refresh sessions list
       mutate("admin-sessions")
       mutate(["opportunities", sessionToDelete.category])
-      router.refresh()
     } catch (err) {
       setMessage({ type: "error", text: "Не удалось удалить сеанс. Попробуйте ещё раз." })
     } finally {
@@ -220,14 +199,7 @@ export function AdminForm() {
 
   const totalSessions = allSessions?.reduce((acc, cat) => acc + cat.items.length, 0) || 0
 
-  function handleUnauthorized() {
-    clearStoredToken()
-    setAdminToken("")
-    setTokenInput("")
-    setMessage({ type: "error", text: "Неверный токен доступа. Введите его заново." })
-  }
-
-  if (!hydrated) {
+  if (authLoading || (user && isAdmin === null)) {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -235,55 +207,32 @@ export function AdminForm() {
     )
   }
 
-  if (!adminToken) {
+  if (!user) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Доступ к админ-панели
-          </CardTitle>
-          <CardDescription>
-            Введите токен администратора. Он хранится только в этой вкладке браузера
-            и стирается при её закрытии.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              const token = tokenInput.trim()
-              if (!token) return
-              storeToken(token)
-              setAdminToken(token)
-              setTokenInput("")
-              setMessage(null)
-            }}
-            className="space-y-4"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="admin-token">Токен</Label>
-              <Input
-                id="admin-token"
-                type="password"
-                autoComplete="off"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="••••••••••••"
-                required
-              />
-            </div>
+        <CardContent className="py-8">
+          <AuthForm
+            title="Вход для администраторов"
+            description="Войдите в аккаунт, которому выданы права администратора."
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
-            {message && (
-              <div className="p-3 rounded-lg text-sm bg-destructive/10 text-destructive">
-                {message.text}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={!tokenInput.trim()}>
-              Войти
-            </Button>
-          </form>
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="space-y-4 py-8 text-center">
+          <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">У этого аккаунта нет прав администратора</p>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+          </div>
+          <Button variant="outline" onClick={signOut} className="gap-2">
+            <LogOut className="h-4 w-4" />
+            Выйти и войти другим аккаунтом
+          </Button>
         </CardContent>
       </Card>
     )
@@ -291,18 +240,10 @@ export function AdminForm() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2 text-muted-foreground"
-          onClick={() => {
-            clearStoredToken()
-            setAdminToken("")
-            setMessage(null)
-          }}
-        >
-          <Lock className="h-3.5 w-3.5" />
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+        <Button variant="ghost" size="sm" className="shrink-0 gap-2 text-muted-foreground" onClick={signOut}>
+          <LogOut className="h-3.5 w-3.5" />
           Выйти
         </Button>
       </div>
