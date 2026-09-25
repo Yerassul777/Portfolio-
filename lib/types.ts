@@ -189,3 +189,44 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   volunteering: 'Волонтёрство',
   universities: 'Университеты',
 }
+
+export function getFilterLabel(category: Category, key: string, value: string): string {
+  const config = FILTER_CONFIGS[category].find((c) => c.key === key)
+  const option = config?.options.find((o) => o.value === value)
+  return option?.label || value
+}
+
+export interface QuickFilter {
+  key: string
+  value: string
+}
+
+// One-tap chips under the category tabs. Every value comes from FILTER_CONFIGS,
+// so a chip and the matching checkbox in the filter dialog are the same filter.
+export const QUICK_FILTERS: Record<Category, QuickFilter[]> = {
+  olympiads: [
+    { key: "subject", value: "math" },
+    { key: "subject", value: "physics" },
+    { key: "subject", value: "informatics" },
+    { key: "subject", value: "chemistry" },
+    { key: "subject", value: "biology" },
+  ],
+  competitions: [
+    { key: "type", value: "hackathon" },
+    { key: "type", value: "robotics" },
+    { key: "type", value: "scientific" },
+    { key: "type", value: "business" },
+  ],
+  volunteering: [
+    { key: "type", value: "social" },
+    { key: "type", value: "ecological" },
+    { key: "type", value: "educational" },
+    { key: "format", value: "online" },
+  ],
+  universities: [
+    { key: "grant_available", value: "true" },
+    { key: "field", value: "it" },
+    { key: "field", value: "medical" },
+    { key: "field", value: "engineering" },
+  ],
+}

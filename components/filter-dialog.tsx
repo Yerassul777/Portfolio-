@@ -30,7 +30,7 @@ import {
   Wallet,
   ClipboardList
 } from "lucide-react"
-import { FILTER_CONFIGS, type Category } from "@/lib/types"
+import { FILTER_CONFIGS, getFilterLabel, type Category } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import type { Filters } from "@/components/filter-panel"
 
@@ -38,6 +38,10 @@ interface FilterDialogProps {
   category: Category
   filters: Filters
   onFiltersChange: (filters: Filters) => void
+  /** Rendered first in the toolbar row, e.g. the search input. */
+  children?: React.ReactNode
+  /** "key:value" pairs already visible elsewhere (quick chips) — no duplicate badge. */
+  hiddenBadges?: Set<string>
 }
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -55,7 +59,7 @@ const iconMap: Record<string, React.ReactNode> = {
   'clipboard': <ClipboardList className="h-4 w-4" />,
 }
 
-export function FilterDialog({ category, filters, onFiltersChange }: FilterDialogProps) {
+export function FilterDialog({ category, filters, onFiltersChange, children, hiddenBadges }: FilterDialogProps) {
   const [open, setOpen] = useState(false)
   const filterConfigs = FILTER_CONFIGS[category]
   const activeFilterCount = Object.values(filters).flat().length
@@ -85,15 +89,16 @@ export function FilterDialog({ category, filters, onFiltersChange }: FilterDialo
     })
   }
 
-  const getFilterLabel = (key: string, value: string): string => {
-    const config = filterConfigs.find((c) => c.key === key)
-    const option = config?.options.find((o) => o.value === value)
-    return option?.label || value
-  }
+  const visibleBadges = Object.entries(filters).flatMap(([key, values]) =>
+    values
+      .filter((value) => !hiddenBadges?.has(`${key}:${value}`))
+      .map((value) => ({ key, value }))
+  )
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {children}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button
@@ -204,16 +209,15 @@ export function FilterDialog({ category, filters, onFiltersChange }: FilterDialo
       </div>
 
       {/* Active filters badges */}
-      {activeFilterCount > 0 && (
+      {visibleBadges.length > 0 && (
         <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-          {Object.entries(filters).map(([key, values]) =>
-            values.map((value) => (
+          {visibleBadges.map(({ key, value }) => (
               <Badge
                 key={`${key}-${value}`}
                 variant="secondary"
                 className="gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200 group border border-primary/20"
               >
-                <span className="text-sm font-medium">{getFilterLabel(key, value)}</span>
+                <span className="text-sm font-medium">{getFilterLabel(category, key, value)}</span>
                 <button
                   type="button"
                   onClick={() => clearFilter(key, value)}
@@ -223,8 +227,7 @@ export function FilterDialog({ category, filters, onFiltersChange }: FilterDialo
                   <span className="sr-only">Удалить фильтр</span>
                 </button>
               </Badge>
-            ))
-          )}
+          ))}
         </div>
       )}
     </div>

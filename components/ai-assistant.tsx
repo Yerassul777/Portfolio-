@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,6 +18,35 @@ interface Note {
   title: string
   content: string
   category: string
+}
+
+const URL_PATTERN = /https?:\/\/[^\s<>"'«»]+/g
+
+// Turns bare http(s) URLs into links. Built from React elements, never HTML,
+// so model output cannot inject markup; the pattern only admits http(s).
+function linkify(text: string) {
+  const parts: ReactNode[] = []
+  let last = 0
+  for (const match of text.matchAll(URL_PATTERN)) {
+    // A sentence often ends right after a URL: keep the trailing punctuation as text.
+    const url = match[0].replace(/[.,;:!?)\]]+$/, "")
+    const start = match.index ?? 0
+    if (start > last) parts.push(text.slice(last, start))
+    parts.push(
+      <a
+        key={start}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-emerald-400 underline underline-offset-2 hover:text-emerald-300"
+      >
+        {url}
+      </a>
+    )
+    last = start + url.length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
 }
 
 export function AIAssistant() {
@@ -235,7 +264,7 @@ export function AIAssistant() {
                         message.role === "user" ? "text-white" : "text-gray-300"
                       }`}
                     >
-                      {message.content}
+                      {message.role === "assistant" ? linkify(message.content) : message.content}
                     </p>
                     <p
                       className={`text-xs mt-2 ${
