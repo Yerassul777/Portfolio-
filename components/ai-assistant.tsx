@@ -12,7 +12,8 @@ import { useI18n } from "@/components/i18n-provider"
 import { HTML_LANG } from "@/lib/i18n/config"
 import { format, plural } from "@/lib/i18n/format"
 import { loadSupabase } from "@/lib/supabase-browser"
-import { clearChatHistory, readNotes, saveChatHistory, useChatHistory, useNotes, type ChatMessage } from "@/lib/local-store"
+import { useChat, type ChatMessage } from "@/lib/chat"
+import { useNotesData } from "@/lib/notes"
 
 type Quota = { used: number; limit: number }
 
@@ -56,17 +57,22 @@ export function AIAssistant() {
   const setQuota = (next: Quota) => {
     if (user) setQuotaState({ userId: user.id, quota: next })
   }
-  const messages = useChatHistory()
+  const [open, setOpen] = useState(false)
+  const chat = useChat(open)
+  // Sent, not yet answered: shown under the history until the reply arrives.
+  const [pending, setPending] = useState<Message | null>(null)
+  const messages = pending ? [...chat.messages, pending] : chat.messages
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const notes = useNotes()
+  // The account's notes (the assistant needs sign-in), used as context.
+  const { notes } = useNotesData(open)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [messages.length, isLoading])
 
   // Today's allowance, so the limit is visible before it is hit. RLS returns
   // only this user's rows; the server remains the one that enforces it.
@@ -92,28 +98,26 @@ export function AIAssistant() {
     }
   }, [user])
 
-  const saveMessages = saveChatHistory
-
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return
+    const text = input.trim()
+    if (!text || isLoading) return
 
     const userMessage: Message = {
       role: "user",
-      content: input.trim(),
+      content: text,
       timestamp: new Date().toISOString(),
     }
 
-    const updatedMessages = [...messages, userMessage]
-    saveMessages(updatedMessages)
+    const updatedMessages = [...chat.messages, userMessage]
+    setPending(userMessage)
     setInput("")
     setError(null)
     setIsLoading(true)
 
+    let reply: Message
     try {
-      const currentNotes = readNotes()
-
-      const notesContext = currentNotes.length > 0
-        ? currentNotes.map((note) =>
+      const notesContext = notes.length > 0
+        ? notes.map((note) =>
             `[${note.category.toUpperCase()}] ${note.title}:\n${note.content}`
           ).join("\n\n---\n\n")
         : ""
@@ -144,27 +148,48 @@ export function AIAssistant() {
       const data = await response.json()
       if (data.quota) setQuota(data.quota)
 
-      const assistantMessage: Message = {
+      reply = {
         role: "assistant",
         content: data.message,
         timestamp: new Date().toISOString(),
       }
-      saveMessages([...updatedMessages, assistantMessage])
     } catch (error) {
+      // Nothing was answered: the question goes back into the box, not into history.
+      setPending(null)
+      setInput((current) => current || text)
       setError(
         error instanceof Error && error.message
           ? error.message
           : t.ai.failed
       )
-    } finally {
       setIsLoading(false)
+      return
+    }
+
+    // append shows both messages at once (before the save completes), so the
+    // pending one can go in the same render without a flicker.
+    const saving = chat.append([userMessage, reply])
+    setPending(null)
+    setIsLoading(false)
+    try {
+      await saving
+    } catch {
+      setError(t.ai.saveFailed)
     }
   }
 
-  const clearHistory = clearChatHistory
+  const clearHistory = async () => {
+    if (!window.confirm(t.ai.clearConfirm)) return
+    setError(null)
+    try {
+      await chat.clear()
+    } catch {
+      setError(t.ai.clearFailed)
+    }
+  }
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button
           variant="outline"
@@ -190,7 +215,7 @@ export function AIAssistant() {
               {t.ai.title}
             </SheetTitle>
             <div className="flex items-center gap-2">
-              {user && messages.length > 0 && (
+              {user && chat.messages.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -244,10 +269,21 @@ export function AIAssistant() {
               <AuthForm title={t.ai.signInTitle} description={t.ai.signInText} />
             )}
           </div>
+        ) : !chat.ready ? (
+          <div role="status" aria-label={t.ai.thinking} className="flex flex-1 justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+          </div>
+        ) : chat.loadFailed ? (
+          <div className="flex-1 space-y-3 px-6 py-12 text-center">
+            <p role="alert" className="text-sm text-gray-300">{t.ai.historyLoadError}</p>
+            <Button variant="outline" className="h-11" onClick={chat.retry}>
+              {t.ai.retry}
+            </Button>
+          </div>
         ) : (
         <div
           ref={chatContainerRef}
-          className="flex-1 overflow-y-auto px-6 py-4 min-h-0"
+          className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 min-h-0"
         >
           <div className="space-y-4">
             {messages.length === 0 && (
@@ -276,7 +312,7 @@ export function AIAssistant() {
 
             {messages.map((message, index) => (
               <div
-                key={index}
+                key={`${message.timestamp}-${index}`}
                 className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.role === "assistant" && (

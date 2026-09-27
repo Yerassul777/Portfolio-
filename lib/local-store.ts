@@ -2,8 +2,10 @@
 
 import { useSyncExternalStore } from "react"
 
-// Device-local data (notes, AI chat). Every read tolerates missing or corrupted
-// storage, so a bad value can never take the page down.
+// Device-local data: notes of visitors who are not signed in, and the AI chat
+// as earlier versions kept it (moved into the account on first use, see
+// lib/chat.ts). Every read tolerates missing or corrupted storage, so a bad
+// value can never take the page down.
 
 export interface Note {
   id: string
@@ -102,5 +104,5 @@ export const readNotes = notesStore.read
 export const saveNotes = (notes: Note[]) => notesStore.write(notes)
 
 export const useChatHistory = chatStore.useItems
-export const saveChatHistory = (messages: ChatMessage[]) => chatStore.write(messages)
+export const readChatHistory = chatStore.read
 export const clearChatHistory = () => chatStore.write(null)
