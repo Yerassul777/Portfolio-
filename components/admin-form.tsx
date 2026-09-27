@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, LogOut, ShieldAlert } from "lucide-react"
-import { FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opportunity } from "@/lib/types"
+import { CATEGORIES, FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opportunity } from "@/lib/types"
 import useSWR, { mutate } from "swr"
 import { AuthForm } from "@/components/auth-form"
 import { useAuth } from "@/components/auth-provider"
@@ -27,24 +27,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-async function fetchAllSessions(): Promise<{ category: Category; items: Opportunity[] }[]> {
-  const categories: Category[] = ["olympiads", "competitions", "volunteering", "universities"]
-  
-  const results = await Promise.all(
-    categories.map(async (category) => {
-      const res = await fetch(`/api/sessions?category=${category}`)
-      if (!res.ok) throw new Error(`Failed to fetch ${category}`)
-      const { data } = await res.json()
-      return { category, items: data || [] }
-    })
-  )
-  
-  return results
+type AdminItem = Pick<Opportunity, "id" | "kind" | "title" | "description" | "status">
+
+// Read with the admin's own session: RLS shows admins every row, whatever its status.
+async function fetchAllSessions(): Promise<{ category: Category; items: AdminItem[] }[]> {
+  const { data, error } = await getSupabaseBrowserClient()
+    .from("opportunities")
+    .select("id, kind, title, description, status")
+    .order("created_at", { ascending: false })
+  if (error) throw error
+
+  const items = (data ?? []) as AdminItem[]
+  return CATEGORIES.map((category) => ({
+    category,
+    items: items.filter((item) => item.kind === category),
+  }))
 }
 
 export function AdminForm() {
   const { user, loading: authLoading, signOut } = useAuth()
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+  // Tagged with the user it was checked for; anything else reads as "not checked yet".
+  const [adminCheck, setAdminCheck] = useState<{ userId: string; isAdmin: boolean } | null>(null)
+  const isAdmin = user && adminCheck?.userId === user.id ? adminCheck.isAdmin : null
   const [isLoading, setIsLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; category: Category; title: string } | null>(null)
@@ -53,23 +57,20 @@ export function AdminForm() {
   // This only decides what to render. The database enforces the same rule on
   // every write through RLS, so a tampered client still cannot write.
   useEffect(() => {
-    if (!user) {
-      setIsAdmin(null)
-      return
-    }
+    if (!user) return
+    const userId = user.id
     let cancelled = false
-    setIsAdmin(null)
     getSupabaseBrowserClient()
       .rpc("is_admin")
       .then(({ data, error }) => {
-        if (!cancelled) setIsAdmin(!error && data === true)
+        if (!cancelled) setAdminCheck({ userId, isAdmin: !error && data === true })
       })
     return () => {
       cancelled = true
     }
   }, [user])
 
-  const { data: allSessions, isLoading: sessionsLoading } = useSWR("admin-sessions", fetchAllSessions)
+  const { data: allSessions, isLoading: sessionsLoading } = useSWR(isAdmin ? "admin-sessions" : null, fetchAllSessions)
 
   const [formData, setFormData] = useState<{
     category: Category | ""
@@ -111,6 +112,7 @@ export function AdminForm() {
 
     try {
       const insertData: Record<string, string | boolean | null> = {
+        kind: formData.category,
         title: formData.title,
         description: formData.description,
         link: formData.link,
@@ -128,7 +130,7 @@ export function AdminForm() {
         if (value) insertData[key] = value
       }
 
-      const { error } = await getSupabaseBrowserClient().from(formData.category).insert(insertData)
+      const { error } = await getSupabaseBrowserClient().from("opportunities").insert(insertData)
 
       if (error) {
         setMessage({
@@ -136,7 +138,9 @@ export function AdminForm() {
           text:
             error.code === "42501"
               ? "Нет прав администратора для этой операции."
-              : "Не удалось добавить сеанс. Попробуйте ещё раз.",
+              : error.code === "23514"
+                ? "Ссылка и изображение должны начинаться с http:// или https://."
+                : "Не удалось добавить сеанс. Попробуйте ещё раз.",
         })
         return
       }
@@ -156,7 +160,7 @@ export function AdminForm() {
       // Refresh sessions list
       mutate("admin-sessions")
       mutate(["opportunities", formData.category])
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Не удалось добавить сеанс. Попробуйте ещё раз." })
     } finally {
       setIsLoading(false)
@@ -172,7 +176,7 @@ export function AdminForm() {
       // RLS turns a disallowed delete into "0 rows" rather than an error, so the
       // count is what tells success from a silent refusal.
       const { error, count } = await getSupabaseBrowserClient()
-        .from(sessionToDelete.category)
+        .from("opportunities")
         .delete({ count: "exact" })
         .eq("id", sessionToDelete.id)
 
@@ -189,7 +193,7 @@ export function AdminForm() {
       // Refresh sessions list
       mutate("admin-sessions")
       mutate(["opportunities", sessionToDelete.category])
-    } catch (err) {
+    } catch {
       setMessage({ type: "error", text: "Не удалось удалить сеанс. Попробуйте ещё раз." })
     } finally {
       setDeleteLoading(null)

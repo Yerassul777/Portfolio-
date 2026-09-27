@@ -1,6 +1,5 @@
 "use client"
 
-import { ArrowDown, Sparkles, Target, Users, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function HeroSection() {

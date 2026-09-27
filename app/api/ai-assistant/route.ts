@@ -7,6 +7,8 @@ import {
   type Opportunity,
 } from "@/lib/types"
 import { matchesSearch, searchTokens } from "@/lib/search"
+import { searchCatalogue, type CatalogueFilters } from "@/lib/catalogue"
+import { isDeadlinePassed, todayInAlmaty } from "@/lib/deadline"
 
 const MODEL = "gpt-4o-mini"
 const MAX_TOKENS = 700
@@ -31,6 +33,8 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 const MAX_TOOL_ROUNDS = 3
 const MAX_SEARCH_RESULTS = 8
 const MAX_DESCRIPTION_CHARS = 300
+// A stalled upstream must not hold the function (and the reserved quota) open.
+const OPENAI_TIMEOUT_MS = 25_000
 
 type Bucket = { count: number; resetAt: number }
 
@@ -158,16 +162,11 @@ function buildSearchTool() {
 
 const SEARCH_TOOL = buildSearchTool()
 
-function todayInAlmaty(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Almaty" })
-}
-
 type DeadlineStatus = "открыт" | "завершён" | "без дедлайна"
 
 function deadlineStatus(deadline: string | null, today: string): DeadlineStatus {
-  const match = deadline?.match(/^\d{4}-\d{2}-\d{2}/)
-  if (!match) return "без дедлайна"
-  return match[0] < today ? "завершён" : "открыт"
+  if (!deadline) return "без дедлайна"
+  return isDeadlinePassed(deadline, today) ? "завершён" : "открыт"
 }
 
 const STATUS_ORDER: Record<DeadlineStatus, number> = { "открыт": 0, "без дедлайна": 1, "завершён": 2 }
@@ -185,8 +184,7 @@ async function searchOpportunities(args: Record<string, unknown>) {
     return { error: "Каталог временно недоступен" }
   }
 
-  let request = client.from(category).select("*").order("created_at", { ascending: false }).limit(200)
-
+  const filters: CatalogueFilters = {}
   const applied: string[] = []
   const ignored: string[] = []
   const configs = FILTER_CONFIGS[category]
@@ -202,22 +200,24 @@ async function searchOpportunities(args: Record<string, unknown>) {
 
     if (key === "grant_available") {
       if (typeof raw === "boolean") {
-        request = request.eq(key, raw)
+        filters[key] = raw
         applied.push(`${config.label}: ${raw ? "есть" : "нет"}`)
       }
       continue
     }
 
     if (typeof raw === "string" && config.options.some((o) => o.value === raw)) {
-      request = request.eq(key, raw)
+      filters[key] = raw
       applied.push(`${config.label}: ${getFilterLabel(category, key, raw)}`)
     } else {
       ignored.push(key)
     }
   }
 
-  const { data, error } = await request
-  if (error) {
+  let data: Opportunity[]
+  try {
+    data = await searchCatalogue(client, { kind: category, filters })
+  } catch (error) {
     console.error("Catalogue search error:", error)
     return { error: "Каталог временно недоступен" }
   }
@@ -225,7 +225,7 @@ async function searchOpportunities(args: Record<string, unknown>) {
   const tokens = typeof args.query === "string" ? searchTokens(args.query) : []
   const today = todayInAlmaty()
 
-  const matches = (data as Opportunity[])
+  const matches = data
     .filter((opp) => matchesSearch(opp, category, tokens))
     .map((opp) => {
       const details: Record<string, string> = {}
@@ -280,23 +280,30 @@ async function callOpenAI(
   messages: ChatMessage[],
   toolChoice: "auto" | "none"
 ): Promise<{ reply: AssistantReply; usage: Usage } | null> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      tools: [SEARCH_TOOL],
-      tool_choice: toolChoice,
-      // Strict schemas are only guaranteed for one call at a time.
-      parallel_tool_calls: false,
-      temperature: 0.7,
-      max_tokens: MAX_TOKENS,
-    }),
-  })
+  let response: Response
+  try {
+    response = await fetch("https://api.openai.com/v1/chat/completions", {
+      signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages,
+        tools: [SEARCH_TOOL],
+        tool_choice: toolChoice,
+        // Strict schemas are only guaranteed for one call at a time.
+        parallel_tool_calls: false,
+        temperature: 0.7,
+        max_tokens: MAX_TOKENS,
+      }),
+    })
+  } catch (error) {
+    console.error("OpenAI request failed:", error)
+    return null
+  }
 
   if (!response.ok) {
     console.error("OpenAI API error:", response.status, await response.text())

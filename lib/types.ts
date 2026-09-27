@@ -1,10 +1,22 @@
+export type Category = "olympiads" | "competitions" | "volunteering" | "universities"
+
+export const CATEGORIES: Category[] = ["olympiads", "competitions", "volunteering", "universities"]
+
+export type OpportunityStatus = "pending" | "published" | "rejected" | "archived"
+
+// A row of public.opportunities.
 export interface Opportunity {
   id: string
+  kind: Category
+  status: OpportunityStatus
+  slug: string
   title: string
   description: string
-  link: string
+  link: string | null
+  // Calendar date "YYYY-MM-DD", Almaty time; see lib/deadline.ts.
   deadline: string | null
   created_at: string
+  updated_at: string
   image_url?: string | null
   // Filter fields
   subject?: string | null
@@ -19,7 +31,8 @@ export interface Opportunity {
   grant_available?: boolean | null
 }
 
-export type Category = "olympiads" | "competitions" | "volunteering" | "universities"
+// Active filters: filter key -> selected values.
+export type Filters = Record<string, string[]>
 
 export interface FilterOption {
   label: string

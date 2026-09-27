@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -18,15 +18,8 @@ import {
   Save,
   X,
 } from "lucide-react"
+import { saveNotes, useNotes, type Note } from "@/lib/local-store"
 
-interface Note {
-  id: string
-  title: string
-  content: string
-  category: "goals" | "portfolio" | "ideas" | "other"
-  createdAt: string
-  updatedAt: string
-}
 
 const CATEGORIES = [
   { value: "goals", label: "Цели", icon: Target, color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
@@ -36,7 +29,7 @@ const CATEGORIES = [
 ] as const
 
 export function NotesWorkspace() {
-  const [notes, setNotes] = useState<Note[]>([])
+  const notes = useNotes()
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newNote, setNewNote] = useState<{
@@ -44,20 +37,6 @@ export function NotesWorkspace() {
     content: string
     category: Note["category"]
   }>({ title: "", content: "", category: "goals" })
-
-  // Load notes from localStorage
-  useEffect(() => {
-    const savedNotes = localStorage.getItem("portfolio-notes")
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes))
-    }
-  }, [])
-
-  // Save notes to localStorage
-  const saveNotes = (updatedNotes: Note[]) => {
-    localStorage.setItem("portfolio-notes", JSON.stringify(updatedNotes))
-    setNotes(updatedNotes)
-  }
 
   const addNote = () => {
     if (!newNote.title.trim() && !newNote.content.trim()) return

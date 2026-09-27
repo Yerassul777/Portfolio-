@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Calendar, Eye, MapPin, Monitor, GraduationCap } from "lucide-react"
 import type { Opportunity, Category } from "@/lib/types"
 import { KAZAKHSTAN_CITIES } from "@/lib/types"
+import { formatDeadline, isDeadlinePassed } from "@/lib/deadline"
 import { SessionDetailModal } from "@/components/session-detail-modal"
 
 interface OpportunityCardProps {
@@ -16,16 +17,8 @@ interface OpportunityCardProps {
 
 export function OpportunityCard({ opportunity, category }: OpportunityCardProps) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const isExpired = opportunity.deadline ? new Date(opportunity.deadline) < new Date() : false
+  const isExpired = isDeadlinePassed(opportunity.deadline)
   const hasImage = !!opportunity.image_url
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })
-  }
 
   const getCityLabel = (cityValue: string | null | undefined) => {
     if (!cityValue) return null
@@ -124,7 +117,7 @@ export function OpportunityCard({ opportunity, category }: OpportunityCardProps)
               className={`gap-1 ${!isExpired && "bg-primary/10 text-primary border-primary/20"}`}
             >
               <Calendar className="h-3 w-3" />
-              {formatDate(opportunity.deadline)}
+              {formatDeadline(opportunity.deadline)}
             </Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground">Без дедлайна</Badge>

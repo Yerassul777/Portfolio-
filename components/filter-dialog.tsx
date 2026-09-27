@@ -30,9 +30,8 @@ import {
   Wallet,
   ClipboardList
 } from "lucide-react"
-import { FILTER_CONFIGS, getFilterLabel, type Category } from "@/lib/types"
+import { FILTER_CONFIGS, getFilterLabel, type Category, type Filters } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import type { Filters } from "@/components/filter-panel"
 
 interface FilterDialogProps {
   category: Category

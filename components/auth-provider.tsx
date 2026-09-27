@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type { Session, User } from "@supabase/supabase-js"
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { clearChatHistory } from "@/lib/local-store"
 
 type AuthState = {
   session: Session | null
@@ -36,11 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await getSupabaseBrowserClient().auth.signOut()
     // The chat transcript is stored per device, not per account: drop it so the
     // next person on a shared computer does not see it.
-    try {
-      localStorage.removeItem("ai-chat-history")
-    } catch {
-      // Storage unavailable (private mode) — nothing was persisted then.
-    }
+    clearChatHistory()
   }
 
   return (

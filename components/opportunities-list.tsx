@@ -1,22 +1,20 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import useSWR from "swr"
 import { Search, X } from "lucide-react"
 import { OpportunityCard } from "@/components/opportunity-card"
 import { CategoryTabs } from "@/components/category-tabs"
 import { FilterDialog } from "@/components/filter-dialog"
 import { QuickFilters } from "@/components/quick-filters"
-import type { Filters } from "@/components/filter-panel"
 import { Skeleton } from "@/components/ui/skeleton"
-import { QUICK_FILTERS, type Category, type Opportunity } from "@/lib/types"
+import { QUICK_FILTERS, type Category, type Opportunity, type Filters } from "@/lib/types"
 import { matchesSearch, searchTokens } from "@/lib/search"
+import { searchCatalogue } from "@/lib/catalogue"
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
 
-async function fetchOpportunities(category: Category): Promise<Opportunity[]> {
-  const res = await fetch(`/api/sessions?category=${category}`)
-  if (!res.ok) throw new Error(`Failed to fetch ${category}`)
-  const { data } = await res.json()
-  return data || []
+function fetchOpportunities(category: Category): Promise<Opportunity[]> {
+  return searchCatalogue(getSupabaseBrowserClient(), { kind: category })
 }
 
 export function OpportunitiesList() {
@@ -26,9 +24,10 @@ export function OpportunitiesList() {
 
   // Filters belong to a category; the search text is the user's intent and
   // carries over when they switch tabs.
-  useEffect(() => {
+  const changeCategory = (next: Category) => {
+    setCategory(next)
     setFilters({})
-  }, [category])
+  }
 
   const {
     data: opportunities,
@@ -45,7 +44,7 @@ export function OpportunitiesList() {
     if (!opportunities) return []
 
     const tokens = searchTokens(query)
-    const activeFilters = Object.entries(filters).filter(([_, values]) => values.length > 0)
+    const activeFilters = Object.entries(filters).filter(([, values]) => values.length > 0)
 
     return opportunities.filter((opp) => {
       if (!matchesSearch(opp, category, tokens)) return false
@@ -72,7 +71,7 @@ export function OpportunitiesList() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="space-y-4">
-        <CategoryTabs activeCategory={category} onCategoryChange={setCategory} />
+        <CategoryTabs activeCategory={category} onCategoryChange={changeCategory} />
         <QuickFilters category={category} filters={filters} onFiltersChange={setFilters} />
       </div>
 

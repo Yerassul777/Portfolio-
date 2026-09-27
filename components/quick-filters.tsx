@@ -1,7 +1,6 @@
 "use client"
 
-import { QUICK_FILTERS, getFilterLabel, type Category } from "@/lib/types"
-import type { Filters } from "@/components/filter-panel"
+import { QUICK_FILTERS, getFilterLabel, type Category, type Filters } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 interface QuickFiltersProps {

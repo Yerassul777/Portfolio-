@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 import type { Opportunity, Category } from "@/lib/types"
 import { FILTER_CONFIGS, KAZAKHSTAN_CITIES } from "@/lib/types"
+import { formatDeadline, isDeadlinePassed } from "@/lib/deadline"
 import { useState } from "react"
 
 interface SessionDetailModalProps {
@@ -81,15 +82,7 @@ export function SessionDetailModal({ opportunity, category, open, onOpenChange }
 
   if (!opportunity) return null
 
-  const isExpired = opportunity.deadline ? new Date(opportunity.deadline) < new Date() : false
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })
-  }
+  const isExpired = isDeadlinePassed(opportunity.deadline)
 
   const activeFilters: { key: string; label: string; value: string; valueLabel: string }[] = []
   if (category) {
@@ -134,7 +127,7 @@ export function SessionDetailModal({ opportunity, category, open, onOpenChange }
                   <Calendar className="h-3.5 w-3.5 text-gray-500" />
                   <span className={`text-sm ${isExpired ? "text-red-400" : "text-gray-400"}`}>
                     {isExpired ? "Истёк: " : "Дедлайн: "}
-                    {formatDate(opportunity.deadline)}
+                    {formatDeadline(opportunity.deadline, "long")}
                   </span>
                 </div>
               )}
@@ -190,7 +183,6 @@ export function SessionDetailModal({ opportunity, category, open, onOpenChange }
                     src={opportunity.image_url}
                     alt={opportunity.title}
                     className="w-full h-auto object-cover"
-                    crossOrigin="anonymous"
                   />
                 </div>
               ) : (

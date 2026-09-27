@@ -9,6 +9,7 @@ import { Bot, Send, Loader2, Sparkles, TrendingUp, X, LogOut } from "lucide-reac
 import { AuthForm } from "@/components/auth-form"
 import { getAccessToken, useAuth } from "@/components/auth-provider"
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { clearChatHistory, readNotes, saveChatHistory, useChatHistory, useNotes, type ChatMessage } from "@/lib/local-store"
 
 type Quota = { used: number; limit: number }
 
@@ -20,18 +21,7 @@ function messagesWord(n: number): string {
   return "сообщений"
 }
 
-interface Message {
-  role: "user" | "assistant"
-  content: string
-  timestamp: string
-}
-
-interface Note {
-  id: string
-  title: string
-  content: string
-  category: string
-}
+type Message = ChatMessage
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'«»]+/g
 
@@ -64,31 +54,19 @@ function linkify(text: string) {
 
 export function AIAssistant() {
   const { user, loading: authLoading, signOut } = useAuth()
-  const [quota, setQuota] = useState<Quota | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  // Tagged with the user it belongs to, so switching accounts never shows the previous user's allowance.
+  const [quotaState, setQuotaState] = useState<{ userId: string; quota: Quota } | null>(null)
+  const quota = user && quotaState?.userId === user.id ? quotaState.quota : null
+  const setQuota = (next: Quota) => {
+    if (user) setQuotaState({ userId: user.id, quota: next })
+  }
+  const messages = useChatHistory()
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [notes, setNotes] = useState<Note[]>([])
+  const notes = useNotes()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const loadData = () => {
-      const savedNotes = localStorage.getItem("portfolio-notes")
-      if (savedNotes) {
-        const parsedNotes = JSON.parse(savedNotes)
-        setNotes(parsedNotes)
-      }
-      const savedMessages = localStorage.getItem("ai-chat-history")
-      if (savedMessages) {
-        setMessages(JSON.parse(savedMessages))
-      }
-    }
-    loadData()
-    window.addEventListener("storage", loadData)
-    return () => window.removeEventListener("storage", loadData)
-  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -97,10 +75,8 @@ export function AIAssistant() {
   // Today's allowance, so the limit is visible before it is hit. RLS returns
   // only this user's rows; the server remains the one that enforces it.
   useEffect(() => {
-    if (!user) {
-      setQuota(null)
-      return
-    }
+    if (!user) return
+    const userId = user.id
     let cancelled = false
     const supabase = getSupabaseBrowserClient()
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Almaty" })
@@ -111,7 +87,7 @@ export function AIAssistant() {
       if (cancelled) return
       const plan = (profile.data as { plans?: { daily_ai_messages?: number } } | null)?.plans
       if (typeof plan?.daily_ai_messages === "number") {
-        setQuota({ used: usage.data?.message_count ?? 0, limit: plan.daily_ai_messages })
+        setQuotaState({ userId, quota: { used: usage.data?.message_count ?? 0, limit: plan.daily_ai_messages } })
       }
     })
     return () => {
@@ -119,10 +95,7 @@ export function AIAssistant() {
     }
   }, [user])
 
-  const saveMessages = (newMessages: Message[]) => {
-    localStorage.setItem("ai-chat-history", JSON.stringify(newMessages))
-    setMessages(newMessages)
-  }
+  const saveMessages = saveChatHistory
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return
@@ -140,11 +113,10 @@ export function AIAssistant() {
     setIsLoading(true)
 
     try {
-      const freshNotes = localStorage.getItem("portfolio-notes")
-      const currentNotes: Note[] = freshNotes ? JSON.parse(freshNotes) : notes
+      const currentNotes = readNotes()
 
       const notesContext = currentNotes.length > 0
-        ? currentNotes.map((note: Note) =>
+        ? currentNotes.map((note) =>
             `[${note.category.toUpperCase()}] ${note.title}:\n${note.content}`
           ).join("\n\n---\n\n")
         : ""
@@ -192,10 +164,7 @@ export function AIAssistant() {
     }
   }
 
-  const clearHistory = () => {
-    setMessages([])
-    localStorage.removeItem("ai-chat-history")
-  }
+  const clearHistory = clearChatHistory
 
   return (
     <Sheet>
@@ -258,7 +227,6 @@ export function AIAssistant() {
               <button
                 type="button"
                 onClick={() => {
-                  setMessages([])
                   setError(null)
                   signOut()
                 }}
