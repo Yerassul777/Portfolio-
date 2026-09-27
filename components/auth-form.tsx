@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react"
 import { Loader2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { loadSupabase } from "@/lib/supabase-browser"
+import { useI18n } from "@/components/i18n-provider"
+import type { Dictionary } from "@/lib/i18n"
+import { format } from "@/lib/i18n/format"
 
 const RESEND_COOLDOWN_SECONDS = 60
 
@@ -22,17 +25,11 @@ async function isGoogleEnabled(): Promise<boolean> {
   }
 }
 
-function describeAuthError(message: string): string {
-  if (/rate limit|too many|security purposes/i.test(message)) {
-    return "Слишком много попыток. Подождите минуту и попробуйте снова."
-  }
-  if (/expired|invalid/i.test(message)) {
-    return "Код неверный или устарел. Запросите новый."
-  }
-  if (/signups not allowed/i.test(message)) {
-    return "Регистрация временно закрыта."
-  }
-  return "Не получилось войти. Попробуйте ещё раз."
+function describeAuthError(message: string, t: Dictionary): string {
+  if (/rate limit|too many|security purposes/i.test(message)) return t.auth.errors.rateLimit
+  if (/expired|invalid/i.test(message)) return t.auth.errors.invalidCode
+  if (/signups not allowed/i.test(message)) return t.auth.errors.signupsClosed
+  return t.auth.errors.generic
 }
 
 interface AuthFormProps {
@@ -41,6 +38,7 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ title, description }: AuthFormProps) {
+  const { t } = useI18n()
   const [step, setStep] = useState<"email" | "code">("email")
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
@@ -64,7 +62,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
     if (!address) return
     setBusy(true)
     setError(null)
-    const { error } = await getSupabaseBrowserClient().auth.signInWithOtp({
+    const { error } = await (await loadSupabase()).auth.signInWithOtp({
       email: address,
       options: {
         shouldCreateUser: true,
@@ -73,7 +71,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
     })
     setBusy(false)
     if (error) {
-      setError(describeAuthError(error.message))
+      setError(describeAuthError(error.message, t))
       return
     }
     setStep("code")
@@ -85,31 +83,31 @@ export function AuthForm({ title, description }: AuthFormProps) {
     if (!token) return
     setBusy(true)
     setError(null)
-    const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
+    const { error } = await (await loadSupabase()).auth.verifyOtp({
       email: email.trim(),
       token,
       type: "email",
     })
     setBusy(false)
-    if (error) setError(describeAuthError(error.message))
+    if (error) setError(describeAuthError(error.message, t))
     // On success AuthProvider receives the new session and the parent re-renders.
   }
 
   const signInWithGoogle = async () => {
     setBusy(true)
     setError(null)
-    const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
+    const { error } = await (await loadSupabase()).auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.href },
     })
     if (error) {
       setBusy(false)
-      setError(describeAuthError(error.message))
+      setError(describeAuthError(error.message, t))
     }
   }
 
   const inputClass =
-    "h-11 w-full rounded-xl border-2 border-border bg-card px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-primary/60"
+    "h-11 w-full rounded-xl border-2 border-border bg-card px-4 text-base sm:text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-primary/60"
 
   return (
     <div className="mx-auto w-full max-w-sm space-y-5">
@@ -134,12 +132,12 @@ export function AuthForm({ title, description }: AuthFormProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            aria-label="Email"
+            aria-label={t.auth.emailLabel}
             className={inputClass}
           />
           <Button type="submit" disabled={busy || !email.trim()} className="h-11 w-full rounded-xl">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-            Получить код на почту
+            {t.auth.getCode}
           </Button>
         </form>
       ) : (
@@ -150,10 +148,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
           }}
           className="space-y-3"
         >
-          <p className="text-center text-sm text-muted-foreground">
-            Мы отправили письмо на <span className="font-medium text-foreground">{email.trim()}</span>.
-            Введите код из письма или просто перейдите по ссылке в нём.
-          </p>
+          <p className="text-center text-sm text-muted-foreground">{format(t.auth.sentTo, { email: email.trim() })}</p>
           <input
             type="text"
             inputMode="numeric"
@@ -161,13 +156,13 @@ export function AuthForm({ title, description }: AuthFormProps) {
             required
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="Код из письма"
-            aria-label="Код из письма"
+            placeholder={t.auth.codePlaceholder}
+            aria-label={t.auth.codePlaceholder}
             className={`${inputClass} text-center text-lg tracking-[0.3em]`}
           />
           <Button type="submit" disabled={busy || !code.trim()} className="h-11 w-full rounded-xl">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            Войти
+            {t.auth.signIn}
           </Button>
           <div className="flex items-center justify-between text-sm">
             <button
@@ -177,17 +172,17 @@ export function AuthForm({ title, description }: AuthFormProps) {
                 setCode("")
                 setError(null)
               }}
-              className="text-muted-foreground transition-colors hover:text-foreground"
+              className="min-h-11 text-muted-foreground transition-colors hover:text-foreground"
             >
-              Изменить email
+              {t.auth.changeEmail}
             </button>
             <button
               type="button"
               onClick={sendCode}
               disabled={busy || cooldown > 0}
-              className="text-primary transition-colors hover:underline disabled:text-muted-foreground disabled:no-underline"
+              className="min-h-11 text-primary transition-colors hover:underline disabled:text-muted-foreground disabled:no-underline"
             >
-              {cooldown > 0 ? `Отправить снова через ${cooldown} с` : "Отправить снова"}
+              {cooldown > 0 ? format(t.auth.resendIn, { s: cooldown }) : t.auth.resend}
             </button>
           </div>
         </form>
@@ -197,7 +192,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
         <>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <div className="h-px flex-1 bg-border" />
-            или
+            {t.auth.or}
             <div className="h-px flex-1 bg-border" />
           </div>
           <Button
@@ -210,7 +205,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
               <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.8-5.5 3.8-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.2 14.6 2.2 12 2.2 6.6 2.2 2.2 6.6 2.2 12s4.4 9.8 9.8 9.8c5.7 0 9.4-4 9.4-9.6 0-.6-.1-1.1-.2-1.6H12z" />
             </svg>
-            Войти через Google
+            {t.auth.google}
           </Button>
         </>
       )}

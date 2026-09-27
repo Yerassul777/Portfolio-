@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type { Session, User } from "@supabase/supabase-js"
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { loadSupabase } from "@/lib/supabase-browser"
 import { clearChatHistory } from "@/lib/local-store"
 
 type AuthState = {
@@ -18,23 +18,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // supabase-js arrives as its own chunk after first paint. Loading it here
+  // also completes a sign-in when the page was opened from the email link.
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient()
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
+    loadSupabase()
+      .then((supabase) => {
+        if (cancelled) return
+        const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+          setSession(nextSession)
+          setLoading(false)
+        })
+        unsubscribe = () => data.subscription.unsubscribe()
+        return supabase.auth.getSession().then(({ data: current }) => {
+          if (cancelled) return
+          setSession(current.session)
+          setLoading(false)
+        })
+      })
+      .catch((error) => {
+        console.error("Loading auth failed:", error)
+        if (!cancelled) setLoading(false)
+      })
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
-      setLoading(false)
-    })
-    return () => data.subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
   }, [])
 
   const signOut = async () => {
-    await getSupabaseBrowserClient().auth.signOut()
+    await (await loadSupabase()).auth.signOut()
     // The chat transcript is stored per device, not per account: drop it so the
     // next person on a shared computer does not see it.
     clearChatHistory()
@@ -55,6 +71,6 @@ export function useAuth(): AuthState {
 
 /** A fresh access token: getSession refreshes an expired one before returning. */
 export async function getAccessToken(): Promise<string | null> {
-  const { data } = await getSupabaseBrowserClient().auth.getSession()
+  const { data } = await (await loadSupabase()).auth.getSession()
   return data.session?.access_token ?? null
 }

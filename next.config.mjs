@@ -1,7 +1,43 @@
+const isDev = process.env.NODE_ENV !== "production"
+
+// Supabase is the only third party the browser talks to directly (REST, Auth
+// and the Realtime websocket). vercel.live serves the toolbar on preview
+// deployments only.
+const supabaseOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin
+  } catch {
+    return ""
+  }
+})()
+
+// Scripts keep 'unsafe-inline': the App Router inlines its bootstrap scripts,
+// and nonces would force every page to render dynamically. The directives that
+// matter most here are connect-src (where a script may send data), frame-ancestors,
+// base-uri, form-action and object-src.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://vercel.live`,
+  "style-src 'self' 'unsafe-inline'",
+  // Opportunity images are hotlinked from organisers' sites, or stored inline.
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${supabaseOrigin} ${supabaseOrigin.replace(/^https:/, "wss:")} https://vercel.live wss://ws-us3.pusher.com${isDev ? " ws:" : ""}`,
+  "frame-src https://vercel.live",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
+].join("; ")
+
 // The session token lives in localStorage, so these headers are the cheap
 // layer of defence around it. Camera stays allowed for the site itself: the
 // certificate scanner will need it.
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -16,6 +52,23 @@ const nextConfig = {
   output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
   images: {
     unoptimized: true,
+  },
+  experimental: {
+    // A styled 404 for URLs outside /[locale], which has no single root layout.
+    globalNotFound: true,
+  },
+  // Fonts for the link-preview images are read from disk at runtime.
+  outputFileTracingIncludes: {
+    "/[locale]/opengraph-image": ["./assets/fonts/**"],
+    "/[locale]/o/[slug]/opengraph-image": ["./assets/fonts/**"],
+  },
+  async redirects() {
+    // Temporary (307): "/" may pick a language from the browser once there is
+    // more than one. Query strings are kept, so old shared links still work.
+    return [
+      { source: "/", destination: "/ru", permanent: false },
+      { source: "/admin", destination: "/ru/admin", permanent: false },
+    ]
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }]

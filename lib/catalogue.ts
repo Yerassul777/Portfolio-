@@ -1,27 +1,177 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { Category, Opportunity } from "@/lib/types"
+import type { Locale } from "@/lib/i18n/config"
+import { CATEGORIES, FILTER_CONFIGS, type Category, type Filters, type Opportunity } from "@/lib/types"
+import { buildSearchWords, MAX_QUERY_LENGTH, type SearchWord } from "@/lib/search"
+import { categoryPath } from "@/lib/site"
+
+export const PAGE_SIZE = 24
+const MAX_PAGE = 1000
+
+// Everything a card or the detail view shows; `legacy` (the pre-Phase-2 row
+// archive) never needs to reach the browser.
+export const OPPORTUNITY_COLUMNS =
+  "id,kind,status,slug,title,description,link,deadline,image_url,subject,level,type,age_group,format,duration,city,field,requirements,grant_available,created_at,updated_at"
+
+export type SortOrder = "deadline" | "newest"
+
+/**
+ * The catalogue's state, all of it in the URL:
+ *   /ru/competitions?q=робо&type=hackathon,robotics&sort=new&past=1&page=2&o=<slug>
+ * The category is the path; everything else is a query parameter and is left
+ * out when it has its default value, so the plain page stays a clean URL.
+ */
+export interface CatalogueQuery {
+  category: Category
+  q: string
+  filters: Filters
+  sort: SortOrder
+  showPast: boolean
+  page: number
+  /** Slug of the opportunity open in the detail dialog. */
+  open: string | null
+}
+
+type ParamSource = URLSearchParams | Record<string, string | string[] | undefined>
+
+function readParam(source: ParamSource, key: string): string | undefined {
+  if (source instanceof URLSearchParams) return source.get(key) ?? undefined
+  const value = source[key]
+  return Array.isArray(value) ? value[0] : value
+}
+
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,99}$/
+
+export function isCategory(value: string): value is Category {
+  return (CATEGORIES as string[]).includes(value)
+}
+
+/** Parses untrusted URL input; anything unknown or malformed is dropped, never an error. */
+export function parseCatalogueQuery(category: Category, source: ParamSource): CatalogueQuery {
+  const filters: Filters = {}
+  for (const config of FILTER_CONFIGS[category]) {
+    const key = config.key as string
+    const raw = readParam(source, key)
+    if (!raw) continue
+    const allowed = new Set(config.options.map((o) => o.value))
+    const values = [...new Set(raw.split(","))].filter((v) => allowed.has(v))
+    if (values.length > 0) filters[key] = values
+  }
+
+  const page = Number.parseInt(readParam(source, "page") ?? "1", 10)
+  const open = readParam(source, "o")
+
+  return {
+    category,
+    q: (readParam(source, "q") ?? "").slice(0, MAX_QUERY_LENGTH),
+    filters,
+    sort: readParam(source, "sort") === "new" ? "newest" : "deadline",
+    showPast: readParam(source, "past") === "1",
+    page: Number.isFinite(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
+    open: open && SLUG_PATTERN.test(open) ? open : null,
+  }
+}
+
+export function catalogueSearchParams(query: CatalogueQuery, { withOpen = true } = {}): URLSearchParams {
+  const params = new URLSearchParams()
+  const q = query.q.trim()
+  if (q) params.set("q", q)
+  for (const config of FILTER_CONFIGS[query.category]) {
+    const values = query.filters[config.key as string]
+    if (values?.length) params.set(config.key as string, values.join(","))
+  }
+  if (query.sort === "newest") params.set("sort", "new")
+  if (query.showPast) params.set("past", "1")
+  if (query.page > 1) params.set("page", String(query.page))
+  if (withOpen && query.open) params.set("o", query.open)
+  return params
+}
+
+export function catalogueHref(locale: Locale, query: CatalogueQuery): string {
+  const params = catalogueSearchParams(query).toString()
+  return categoryPath(locale, query.category) + (params ? `?${params}` : "")
+}
+
+/** Identifies one page of results; the open dialog is not part of it. */
+export function catalogueKey(query: CatalogueQuery): string {
+  return `${query.category}?${catalogueSearchParams(query, { withOpen: false })}`
+}
+
+export function isRefined(query: CatalogueQuery): boolean {
+  // toString rather than .size, which iOS 16 Safari does not have.
+  return catalogueSearchParams(query, { withOpen: false }).toString() !== ""
+}
+
+export function activeFilterCount(filters: Filters): number {
+  return Object.values(filters).reduce((sum, values) => sum + values.length, 0)
+}
+
+export interface CataloguePage {
+  items: Opportunity[]
+  total: number
+}
 
 export type CatalogueFilters = Partial<Record<string, string | boolean | string[]>>
 
-// The database caps a page at 500 rows.
-export const MAX_PAGE = 500
+interface SearchOptions {
+  kind?: Category
+  filters?: CatalogueFilters
+  search?: SearchWord[]
+  onlyOpen?: boolean
+  sort?: SortOrder
+  limit?: number
+  offset?: number
+}
 
-/**
- * Published opportunities through the search_opportunities RPC. It runs with
- * the caller's rights, so RLS applies exactly as for a direct read. Works with
- * the browser client and the server's public client alike.
- */
-export async function searchCatalogue(
-  client: SupabaseClient,
-  options: { kind?: Category; filters?: CatalogueFilters; onlyOpen?: boolean; limit?: number; offset?: number } = {}
-): Promise<Opportunity[]> {
-  const { data, error } = await client.rpc("search_opportunities", {
+function rpcArgs(options: SearchOptions) {
+  return {
     p_kind: options.kind ?? null,
     p_filters: options.filters ?? {},
     p_only_open: options.onlyOpen ?? false,
-    p_limit: options.limit ?? MAX_PAGE,
-    p_offset: options.offset ?? 0,
-  })
+    p_search: options.search?.length ? options.search : null,
+  }
+}
+
+/**
+ * Published opportunities through search_opportunities. It runs with the
+ * caller's rights, so RLS applies exactly as for a direct read. Works with the
+ * browser client and the server's public client alike.
+ */
+export async function searchCatalogue(client: SupabaseClient, options: SearchOptions = {}): Promise<Opportunity[]> {
+  const { data, error } = await client
+    .rpc("search_opportunities", {
+      ...rpcArgs(options),
+      p_sort: options.sort ?? "newest",
+      p_limit: options.limit ?? PAGE_SIZE,
+      p_offset: options.offset ?? 0,
+    })
+    .select(OPPORTUNITY_COLUMNS)
   if (error) throw error
-  return (data ?? []) as Opportunity[]
+  return (data ?? []) as unknown as Opportunity[]
+}
+
+export async function countCatalogue(client: SupabaseClient, options: SearchOptions = {}): Promise<number> {
+  const { data, error } = await client.rpc("count_opportunities", rpcArgs(options))
+  if (error) throw error
+  return typeof data === "number" ? data : 0
+}
+
+export async function fetchCataloguePage(client: SupabaseClient, query: CatalogueQuery): Promise<CataloguePage> {
+  const options: SearchOptions = {
+    kind: query.category,
+    filters: query.filters,
+    search: buildSearchWords(query.q, query.category),
+    onlyOpen: !query.showPast,
+  }
+  const [items, total] = await Promise.all([
+    searchCatalogue(client, { ...options, sort: query.sort, limit: PAGE_SIZE, offset: (query.page - 1) * PAGE_SIZE }),
+    countCatalogue(client, options),
+  ])
+  return { items, total }
+}
+
+export async function fetchOpportunityBySlug(client: SupabaseClient, slug: string): Promise<Opportunity | null> {
+  if (!SLUG_PATTERN.test(slug)) return null
+  const { data, error } = await client.from("opportunities").select(OPPORTUNITY_COLUMNS).eq("slug", slug).maybeSingle()
+  if (error) throw error
+  return (data as unknown as Opportunity | null) ?? null
 }

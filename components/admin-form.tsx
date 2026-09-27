@@ -15,7 +15,9 @@ import { CATEGORIES, FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opport
 import useSWR, { mutate } from "swr"
 import { AuthForm } from "@/components/auth-form"
 import { useAuth } from "@/components/auth-provider"
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { loadSupabase } from "@/lib/supabase-browser"
+import type { Locale } from "@/lib/i18n/config"
+import { opportunityPath } from "@/lib/site"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,13 +29,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-type AdminItem = Pick<Opportunity, "id" | "kind" | "title" | "description" | "status">
+type AdminItem = Pick<Opportunity, "id" | "kind" | "slug" | "title" | "description" | "status">
 
 // Read with the admin's own session: RLS shows admins every row, whatever its status.
 async function fetchAllSessions(): Promise<{ category: Category; items: AdminItem[] }[]> {
-  const { data, error } = await getSupabaseBrowserClient()
+  const { data, error } = await (await loadSupabase())
     .from("opportunities")
-    .select("id, kind, title, description, status")
+    .select("id, kind, slug, title, description, status")
     .order("created_at", { ascending: false })
   if (error) throw error
 
@@ -44,7 +46,7 @@ async function fetchAllSessions(): Promise<{ category: Category; items: AdminIte
   }))
 }
 
-export function AdminForm() {
+export function AdminForm({ locale }: { locale: Locale }) {
   const { user, loading: authLoading, signOut } = useAuth()
   // Tagged with the user it was checked for; anything else reads as "not checked yet".
   const [adminCheck, setAdminCheck] = useState<{ userId: string; isAdmin: boolean } | null>(null)
@@ -60,8 +62,8 @@ export function AdminForm() {
     if (!user) return
     const userId = user.id
     let cancelled = false
-    getSupabaseBrowserClient()
-      .rpc("is_admin")
+    loadSupabase()
+      .then((supabase) => supabase.rpc("is_admin"))
       .then(({ data, error }) => {
         if (!cancelled) setAdminCheck({ userId, isAdmin: !error && data === true })
       })
@@ -130,7 +132,7 @@ export function AdminForm() {
         if (value) insertData[key] = value
       }
 
-      const { error } = await getSupabaseBrowserClient().from("opportunities").insert(insertData)
+      const { error } = await (await loadSupabase()).from("opportunities").insert(insertData)
 
       if (error) {
         setMessage({
@@ -159,7 +161,6 @@ export function AdminForm() {
       
       // Refresh sessions list
       mutate("admin-sessions")
-      mutate(["opportunities", formData.category])
     } catch {
       setMessage({ type: "error", text: "Не удалось добавить сеанс. Попробуйте ещё раз." })
     } finally {
@@ -175,7 +176,7 @@ export function AdminForm() {
     try {
       // RLS turns a disallowed delete into "0 rows" rather than an error, so the
       // count is what tells success from a silent refusal.
-      const { error, count } = await getSupabaseBrowserClient()
+      const { error, count } = await (await loadSupabase())
         .from("opportunities")
         .delete({ count: "exact" })
         .eq("id", sessionToDelete.id)
@@ -192,7 +193,6 @@ export function AdminForm() {
 
       // Refresh sessions list
       mutate("admin-sessions")
-      mutate(["opportunities", sessionToDelete.category])
     } catch {
       setMessage({ type: "error", text: "Не удалось удалить сеанс. Попробуйте ещё раз." })
     } finally {
@@ -356,7 +356,8 @@ export function AdminForm() {
                   </p>
                   {formData.imageUrl && (
                     <div className="mt-2 relative aspect-video w-full max-w-xs rounded-lg overflow-hidden border">
-                      <img 
+                      {/* eslint-disable-next-line @next/next/no-img-element -- preview of an arbitrary external URL */}
+                      <img
                         src={formData.imageUrl || "/placeholder.svg"} 
                         alt="Preview" 
                         className="object-cover w-full h-full"
@@ -494,15 +495,24 @@ export function AdminForm() {
                               className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="font-medium truncate">{item.title}</p>
+                                <a
+                                  href={opportunityPath(locale, item.slug)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block truncate font-medium hover:text-primary hover:underline"
+                                >
+                                  {item.title}
+                                </a>
                                 <p className="text-sm text-muted-foreground truncate">
-                                  {item.description.slice(0, 60)}...
+                                  {item.status !== "published" && <span className="mr-1 font-medium text-amber-500">[{item.status}]</span>}
+                                  {item.description}
                                 </p>
                               </div>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="shrink-0 ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                aria-label={`Удалить «${item.title}»`}
+                                className="shrink-0 ml-2 size-11 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => setSessionToDelete({ id: item.id, category, title: item.title })}
                                 disabled={deleteLoading === item.id}
                               >

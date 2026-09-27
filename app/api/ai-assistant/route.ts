@@ -6,8 +6,10 @@ import {
   type Category,
   type Opportunity,
 } from "@/lib/types"
-import { matchesSearch, searchTokens } from "@/lib/search"
-import { searchCatalogue, type CatalogueFilters } from "@/lib/catalogue"
+import { buildSearchWords } from "@/lib/search"
+import { countCatalogue, searchCatalogue, type CatalogueFilters } from "@/lib/catalogue"
+import { DEFAULT_LOCALE } from "@/lib/i18n/config"
+import { SITE_URL, opportunityPath } from "@/lib/site"
 import { isDeadlinePassed, todayInAlmaty } from "@/lib/deadline"
 
 const MODEL = "gpt-4o-mini"
@@ -169,8 +171,6 @@ function deadlineStatus(deadline: string | null, today: string): DeadlineStatus 
   return isDeadlinePassed(deadline, today) ? "завершён" : "открыт"
 }
 
-const STATUS_ORDER: Record<DeadlineStatus, number> = { "открыт": 0, "без дедлайна": 1, "завершён": 2 }
-
 async function searchOpportunities(args: Record<string, unknown>) {
   const category = args.category as Category
   if (!CATEGORIES.includes(category)) {
@@ -214,20 +214,28 @@ async function searchOpportunities(args: Record<string, unknown>) {
     }
   }
 
+  // Same search as the site: every word must match the text or a filter
+  // label, nearest open deadline first, past ones last.
+  const options = {
+    kind: category,
+    filters,
+    search: typeof args.query === "string" ? buildSearchWords(args.query, category) : [],
+  }
   let data: Opportunity[]
+  let total: number
   try {
-    data = await searchCatalogue(client, { kind: category, filters })
+    ;[data, total] = await Promise.all([
+      searchCatalogue(client, { ...options, sort: "deadline", limit: MAX_SEARCH_RESULTS }),
+      countCatalogue(client, options),
+    ])
   } catch (error) {
     console.error("Catalogue search error:", error)
     return { error: "Каталог временно недоступен" }
   }
 
-  const tokens = typeof args.query === "string" ? searchTokens(args.query) : []
   const today = todayInAlmaty()
 
-  const matches = data
-    .filter((opp) => matchesSearch(opp, category, tokens))
-    .map((opp) => {
+  const matches = data.map((opp) => {
       const details: Record<string, string> = {}
       for (const config of configs) {
         const value = opp[config.key]
@@ -243,20 +251,20 @@ async function searchOpportunities(args: Record<string, unknown>) {
           opp.description.length > MAX_DESCRIPTION_CHARS
             ? `${opp.description.slice(0, MAX_DESCRIPTION_CHARS)}…`
             : opp.description,
-        link: opp.link,
+        page_url: `${SITE_URL}${opportunityPath(DEFAULT_LOCALE, opp.slug)}`,
+        organizer_link: opp.link,
         deadline: opp.deadline,
         status: deadlineStatus(opp.deadline, today),
         details,
       }
     })
-    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
 
   return {
     category: CATEGORY_LABELS[category],
     applied_filters: applied,
     ...(ignored.length > 0 && { ignored_filters_not_applicable: ignored }),
-    total_found: matches.length,
-    results: matches.slice(0, MAX_SEARCH_RESULTS),
+    total_found: total,
+    results: matches,
   }
 }
 
@@ -358,7 +366,7 @@ function buildSystemPrompt(notesContext: string): string {
 У тебя есть инструмент search_opportunities — поиск по каталогу Portfolio+.
 - Когда пользователь ищет возможности или просит что-то подобрать, сначала вызови search_opportunities и рекомендуй только то, что он вернул.
 - Никогда не выдумывай олимпиады, конкурсы, даты и ссылки. Если в каталоге ничего не нашлось, честно скажи об этом и предложи изменить запрос: другой предмет, город или формат.
-- Для каждой рекомендованной возможности укажи название, дедлайн и ссылку. Возможности со статусом «завершён» не предлагай как актуальные.
+- Для каждой рекомендованной возможности укажи название, дедлайн и ссылку на её страницу в Portfolio+ (page_url) — там все подробности и ссылка на организатора. Возможности со статусом «завершён» не предлагай как актуальные.
 - Если пользователь спрашивает о своих целях или портфолио, опирайся на его заметки.
 
 Отвечай на языке пользователя (по умолчанию — на русском), кратко и по делу. Пиши простым текстом без Markdown: без звёздочек, решёток и квадратных скобок. Ссылки давай обычным адресом.

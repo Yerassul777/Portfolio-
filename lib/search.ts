@@ -1,30 +1,35 @@
-import { FILTER_CONFIGS, getFilterLabel, type Category, type Opportunity } from "@/lib/types"
+import { FILTER_CONFIGS, type Category } from "@/lib/types"
 
-// Russian users type "е" for "ё" and vice versa; fold both so either matches.
-function normalize(text: string): string {
+export const MAX_SEARCH_WORDS = 10
+export const MAX_WORD_LENGTH = 100
+export const MAX_QUERY_LENGTH = 200
+
+// Same folding as public.search_normalize: lower case, "ё" reads as "е".
+export function normalize(text: string): string {
   return text.toLocaleLowerCase("ru").replace(/ё/g, "е")
 }
 
-export function searchTokens(query: string): string[] {
-  return normalize(query).split(/\s+/).filter(Boolean)
-}
+export type SearchWord = { t: string; f?: Record<string, string[]> }
 
 /**
- * Every word of the query must appear somewhere in the opportunity. The
- * searchable text includes the human labels of its filter values, so "Алматы"
- * or "онлайн" match a card whose city is stored as the code "almaty".
+ * Splits a query into words for search_opportunities. Every word must match
+ * the title or description — or a filter value whose human label contains it,
+ * so "Алматы" finds cards stored as city=almaty and "грант" finds
+ * grant_available=true. Labels live here, in FILTER_CONFIGS; the database
+ * only ever compares codes.
  */
-export function matchesSearch(opportunity: Opportunity, category: Category, tokens: string[]): boolean {
-  if (tokens.length === 0) return true
+export function buildSearchWords(query: string, category: Category): SearchWord[] {
+  const words = normalize(query.slice(0, MAX_QUERY_LENGTH))
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.slice(0, MAX_WORD_LENGTH))
 
-  const parts: string[] = [opportunity.title, opportunity.description]
-  for (const config of FILTER_CONFIGS[category]) {
-    const value = opportunity[config.key]
-    if (typeof value === "string" && value) {
-      parts.push(getFilterLabel(category, config.key as string, value))
+  return [...new Set(words)].slice(0, MAX_SEARCH_WORDS).map((word) => {
+    const matches: Record<string, string[]> = {}
+    for (const config of FILTER_CONFIGS[category]) {
+      const values = config.options.filter((o) => normalize(o.label).includes(word)).map((o) => o.value)
+      if (values.length > 0) matches[config.key as string] = values
     }
-  }
-
-  const haystack = normalize(parts.join(" "))
-  return tokens.every((token) => haystack.includes(token))
+    return Object.keys(matches).length > 0 ? { t: word, f: matches } : { t: word }
+  })
 }

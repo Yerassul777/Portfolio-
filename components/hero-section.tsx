@@ -1,90 +1,64 @@
-"use client"
+import type { Dictionary } from "@/lib/i18n"
 
-import { Button } from "@/components/ui/button"
+interface HeroSectionProps {
+  t: Dictionary
+  /**
+   * Short version for category pages and shared links with filters, so a
+   * visitor arriving from a link lands on the results, not on a splash screen.
+   */
+  compact?: boolean
+}
 
-export function HeroSection() {
-  const scrollToContent = () => {
-    const element = document.getElementById('opportunities')
-    element?.scrollIntoView({ behavior: 'smooth' })
-  }
-
+export function HeroSection({ t, compact = false }: HeroSectionProps) {
   return (
-    <>
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0f0d] pt-16">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0">
-          {/* Main gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0a0f0d] via-[#0d1a14] to-[#0f261c]" />
-          
-          {/* Animated glow effects */}
-          <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-emerald-600/8 rounded-full blur-[100px] animate-pulse [animation-delay:1.5s]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/5 rounded-full blur-[150px] animate-pulse [animation-delay:0.75s]" />
-          
-          {/* Grid pattern overlay */}
-          <div 
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-              backgroundSize: '60px 60px'
-            }}
-          />
-        </div>
+    <section
+      className={`relative flex items-center justify-center overflow-hidden ${
+        compact ? "py-12 sm:py-16" : "min-h-[calc(100dvh-4.5rem)] py-16"
+      }`}
+    >
+      <div aria-hidden="true" className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0f0d] via-[#0d1a14] to-[#0f261c]" />
+        <div className="absolute right-[10%] top-[15%] h-[420px] w-[420px] rounded-full bg-emerald-500/10 blur-[110px]" />
+        <div className="absolute bottom-[10%] left-[10%] h-[360px] w-[360px] rounded-full bg-emerald-600/[0.07] blur-[110px]" />
+      </div>
 
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-5xl mx-auto text-center space-y-10">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <span className="text-sm text-emerald-300 font-medium">Платформа для молодёжи Казахстана</span>
-            </div>
+      <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
+        <div className={`mx-auto max-w-5xl text-center ${compact ? "space-y-5" : "space-y-10"}`}>
+          <p className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-300 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-700">
+            {t.hero.badge}
+          </p>
 
-            {/* Main heading */}
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-1000 [animation-delay:100ms]">
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight">
-                <span className="text-white">Найди свою</span>
-                <br />
-                <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent">
-                  возможность
-                </span>
-              </h1>
-              <p className="text-lg sm:text-xl lg:text-2xl text-gray-400 max-w-3xl mx-auto text-balance leading-relaxed">
-                Олимпиады, соревнования, волонтёрство и лучшие университеты Казахстана — всё в одном месте для построения твоего успешного будущего
-              </p>
-            </div>
-
-            {/* CTA buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-in fade-in slide-in-from-bottom-8 duration-1000 [animation-delay:200ms]">
-              <Button 
-                size="lg" 
-                onClick={scrollToContent}
-                className="text-base px-8 py-6 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-105 border-0"
-              >
-                Начать поиск
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline"
-                onClick={scrollToContent}
-                className="text-base px-8 py-6 rounded-full border-2 border-gray-700 bg-transparent text-gray-300 hover:bg-gray-800/50 hover:text-white hover:border-emerald-500/50 transition-all duration-300"
-              >
-                Узнать больше
-              </Button>
-            </div>
-
-            {/* Stats */}
-            
+          <div className={`motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:duration-1000 ${compact ? "space-y-3" : "space-y-6"}`}>
+            <h1
+              className={`font-bold tracking-tight ${
+                compact ? "text-4xl sm:text-5xl" : "text-5xl sm:text-6xl lg:text-7xl xl:text-8xl"
+              }`}
+            >
+              <span className="text-white">{t.hero.titleLine1}</span>
+              {compact ? " " : <br />}
+              <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent">
+                {t.hero.titleLine2}
+              </span>
+            </h1>
+            <p
+              className={`mx-auto max-w-3xl text-balance leading-relaxed text-gray-400 ${
+                compact ? "text-base sm:text-lg" : "text-lg sm:text-xl lg:text-2xl"
+              }`}
+            >
+              {t.hero.subtitle}
+            </p>
           </div>
-        </div>
 
-        {/* Scroll indicator */}
-        <button
-          onClick={scrollToContent}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 cursor-pointer group"
-          aria-label="Scroll to content"
-        >
-          
-        </button>
-      </section>
-    </>
+          {!compact && (
+            <a
+              href="#catalogue"
+              className="inline-flex h-14 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-8 text-base font-medium text-white shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 hover:shadow-emerald-500/40 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/40 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 motion-safe:duration-1000"
+            >
+              {t.hero.cta}
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
   )
 }

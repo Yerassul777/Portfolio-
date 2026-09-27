@@ -1,144 +1,100 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Calendar, Eye, MapPin, Monitor, GraduationCap } from "lucide-react"
-import type { Opportunity, Category } from "@/lib/types"
-import { KAZAKHSTAN_CITIES } from "@/lib/types"
-import { formatDeadline, isDeadlinePassed } from "@/lib/deadline"
-import { SessionDetailModal } from "@/components/session-detail-modal"
+import { Calendar, GraduationCap, MapPin, Monitor } from "lucide-react"
+import { isPlainClick } from "@/components/category-nav"
+import { DeadlineBadge } from "@/components/deadline-badge"
+import { useI18n } from "@/components/i18n-provider"
+import { opportunityPath } from "@/lib/site"
+import { getFilterLabel, type Opportunity } from "@/lib/types"
 
 interface OpportunityCardProps {
   opportunity: Opportunity
-  category?: Category
+  onOpen: (opportunity: Opportunity) => void
+  /** Cards in the first row load their image right away; the rest lazily. */
+  priority?: boolean
 }
 
-export function OpportunityCard({ opportunity, category }: OpportunityCardProps) {
-  const [detailOpen, setDetailOpen] = useState(false)
-  const isExpired = isDeadlinePassed(opportunity.deadline)
-  const hasImage = !!opportunity.image_url
-
-  const getCityLabel = (cityValue: string | null | undefined) => {
-    if (!cityValue) return null
-    const city = KAZAKHSTAN_CITIES.find(c => c.value === cityValue)
-    return city?.label || cityValue
-  }
-
-  const getFormatLabel = (format: string | null | undefined) => {
-    if (!format) return null
-    const formats: Record<string, string> = {
-      'online': 'Онлайн',
-      'offline': 'Офлайн',
-      'hybrid': 'Гибридный',
-      'part-time': 'Заочное',
-    }
-    return formats[format] || format
-  }
-
-  const cityLabel = getCityLabel(opportunity.city)
-  const formatLabel = getFormatLabel(opportunity.format)
+// The whole card is one link to the opportunity's own page, so it can be
+// opened in a new tab, shared or crawled. A plain click opens it in place.
+export function OpportunityCard({ opportunity, onOpen, priority = false }: OpportunityCardProps) {
+  const { locale, t } = useI18n()
+  const { kind, image_url: image } = opportunity
+  const city = opportunity.city ? getFilterLabel(kind, "city", opportunity.city) : null
+  const mode = opportunity.format ? getFilterLabel(kind, "format", opportunity.format) : null
 
   return (
-    <>
-      <Card className="group flex flex-col h-full transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 border border-emerald-500/10 hover:border-emerald-500/25 overflow-hidden rounded-xl bg-[#0d1a14]/60 backdrop-blur-sm">
-        {/* Image Section */}
-        {hasImage && (
-          <div className="relative h-48 overflow-hidden">
-            <img 
-              src={opportunity.image_url || ""} 
-              alt={opportunity.title}
-              className="object-cover w-full h-full"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
-            
-            {/* Floating badges on image */}
-            <div className="absolute top-3 right-3 flex gap-1.5">
-              {opportunity.grant_available && (
-                <Badge className="bg-primary/90 text-primary-foreground border-0 shadow-lg backdrop-blur-sm">
-                  <GraduationCap className="h-3 w-3 mr-1" />
-                  Грант
-                </Badge>
-              )}
-            </div>
-            
-            {/* Title overlay on image */}
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <CardTitle className="text-lg font-bold leading-tight text-foreground drop-shadow-sm line-clamp-2">
-                {opportunity.title}
-              </CardTitle>
-            </div>
+    <a
+      href={opportunityPath(locale, opportunity.slug)}
+      onClick={(event) => {
+        if (!isPlainClick(event)) return
+        event.preventDefault()
+        onOpen(opportunity)
+      }}
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-emerald-500/10 bg-[#0d1a14]/60 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 active:scale-[0.99] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+    >
+      {image && (
+        <div className="relative h-44 shrink-0 overflow-hidden bg-emerald-950/40">
+          {/* eslint-disable-next-line @next/next/no-img-element -- images come from arbitrary hosts and data: URLs */}
+          <img
+            src={image}
+            alt=""
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:group-hover:scale-100"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent" />
+          {opportunity.grant_available && (
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary/90 px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-lg">
+              <GraduationCap aria-hidden="true" className="h-3 w-3" />
+              {t.card.grant}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col gap-3 p-5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-2 text-balance text-lg font-semibold leading-tight text-foreground transition-colors group-hover:text-emerald-300">
+            {opportunity.title}
+          </h3>
+          {!image && opportunity.grant_available && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+              <GraduationCap aria-hidden="true" className="h-3 w-3" />
+              {t.card.grant}
+            </span>
+          )}
+        </div>
+
+        {(city || mode) && (
+          <div className="flex flex-wrap gap-1.5">
+            {city && (
+              <span className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
+                <MapPin aria-hidden="true" className="h-3 w-3" />
+                {city}
+              </span>
+            )}
+            {mode && (
+              <span className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
+                <Monitor aria-hidden="true" className="h-3 w-3" />
+                {mode}
+              </span>
+            )}
           </div>
         )}
 
-        <CardHeader className={hasImage ? "pt-3 pb-2" : "pb-3"}>
-          {!hasImage && (
-            <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-lg font-semibold leading-tight text-balance line-clamp-2">
-                {opportunity.title}
-              </CardTitle>
-              {opportunity.grant_available && (
-                <Badge className="shrink-0 bg-primary/10 text-primary border-primary/20">
-                  <GraduationCap className="h-3 w-3 mr-1" />
-                  Грант
-                </Badge>
-              )}
-            </div>
-          )}
-          
-          {/* Tags row */}
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {cityLabel && (
-              <Badge variant="outline" className="text-xs gap-1 font-normal bg-background/80 backdrop-blur-sm">
-                <MapPin className="h-3 w-3" />
-                {cityLabel}
-              </Badge>
-            )}
-            {formatLabel && (
-              <Badge variant="outline" className="text-xs gap-1 font-normal bg-background/80 backdrop-blur-sm">
-                <Monitor className="h-3 w-3" />
-                {formatLabel}
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        
-        <CardContent className="flex-1">
-          <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3">
-            {opportunity.description}
-          </p>
-        </CardContent>
-        
-        <CardFooter className="flex items-center justify-between pt-4 border-t gap-2">
-          {opportunity.deadline ? (
-            <Badge 
-              variant={isExpired ? "destructive" : "secondary"} 
-              className={`gap-1 ${!isExpired && "bg-primary/10 text-primary border-primary/20"}`}
-            >
-              <Calendar className="h-3 w-3" />
-              {formatDeadline(opportunity.deadline)}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground">Без дедлайна</Badge>
-          )}
-          <Button
-            size="sm"
-            className="gap-1.5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-            onClick={() => setDetailOpen(true)}
-          >
-            Подробнее
-            <Eye className="h-3 w-3" />
-          </Button>
-        </CardFooter>
-      </Card>
+        <p className="line-clamp-3 flex-1 text-sm leading-relaxed text-muted-foreground">{opportunity.description}</p>
 
-      <SessionDetailModal
-        opportunity={opportunity}
-        category={category}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
-    </>
+        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+          {opportunity.deadline ? (
+            <DeadlineBadge deadline={opportunity.deadline} />
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
+              <Calendar aria-hidden="true" className="h-3 w-3" />
+              {t.card.noDeadline}
+            </span>
+          )}
+        </div>
+      </div>
+    </a>
   )
 }

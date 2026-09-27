@@ -1,26 +1,31 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
-let client: SupabaseClient | null = null
+let clientPromise: Promise<SupabaseClient> | null = null
 
 /**
- * One client per tab. The session lives in localStorage rather than cookies so
- * the same code keeps working inside a future app shell (WebView), where the
- * origin differs and cookies are unreliable.
+ * One client per tab, loaded on first use. supabase-js is ~60 KB gzipped and
+ * nothing on first paint needs it (the server renders the catalogue), so it is
+ * a separate chunk rather than part of every page's initial JavaScript.
+ *
+ * The session lives in localStorage rather than cookies so the same code keeps
+ * working inside a future app shell (WebView), where cookies are unreliable.
  */
-export function getSupabaseBrowserClient(): SupabaseClient {
-  if (!client) {
-    client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
+export function loadSupabase(): Promise<SupabaseClient> {
+  clientPromise ??= import("@supabase/supabase-js")
+    .then(({ createClient }) =>
+      createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
           flowType: "pkce",
         },
-      }
+      })
     )
-  }
-  return client
+    .catch((error) => {
+      // A failed chunk download (flaky network) must not poison every later call.
+      clientPromise = null
+      throw error
+    })
+  return clientPromise
 }

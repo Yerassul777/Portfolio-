@@ -4,22 +4,17 @@ import { useState, useEffect, useRef, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet"
 import { Bot, Send, Loader2, Sparkles, TrendingUp, X, LogOut } from "lucide-react"
 import { AuthForm } from "@/components/auth-form"
 import { getAccessToken, useAuth } from "@/components/auth-provider"
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { useI18n } from "@/components/i18n-provider"
+import { HTML_LANG } from "@/lib/i18n/config"
+import { format, plural } from "@/lib/i18n/format"
+import { loadSupabase } from "@/lib/supabase-browser"
 import { clearChatHistory, readNotes, saveChatHistory, useChatHistory, useNotes, type ChatMessage } from "@/lib/local-store"
 
 type Quota = { used: number; limit: number }
-
-function messagesWord(n: number): string {
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 === 1 && mod100 !== 11) return "сообщение"
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "сообщения"
-  return "сообщений"
-}
 
 type Message = ChatMessage
 
@@ -53,6 +48,7 @@ function linkify(text: string) {
 }
 
 export function AIAssistant() {
+  const { locale, t } = useI18n()
   const { user, loading: authLoading, signOut } = useAuth()
   // Tagged with the user it belongs to, so switching accounts never shows the previous user's allowance.
   const [quotaState, setQuotaState] = useState<{ userId: string; quota: Quota } | null>(null)
@@ -78,12 +74,13 @@ export function AIAssistant() {
     if (!user) return
     const userId = user.id
     let cancelled = false
-    const supabase = getSupabaseBrowserClient()
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Almaty" })
-    Promise.all([
-      supabase.from("ai_usage").select("message_count").eq("usage_date", today).maybeSingle(),
-      supabase.from("profiles").select("plans(daily_ai_messages)").maybeSingle(),
-    ]).then(([usage, profile]) => {
+    loadSupabase().then((supabase) =>
+      Promise.all([
+        supabase.from("ai_usage").select("message_count").eq("usage_date", today).maybeSingle(),
+        supabase.from("profiles").select("plans(daily_ai_messages)").maybeSingle(),
+      ])
+    ).then(([usage, profile]) => {
       if (cancelled) return
       const plan = (profile.data as { plans?: { daily_ai_messages?: number } } | null)?.plans
       if (typeof plan?.daily_ai_messages === "number") {
@@ -123,7 +120,7 @@ export function AIAssistant() {
 
       const token = await getAccessToken()
       if (!token) {
-        throw new Error("Сессия истекла. Войдите снова.")
+        throw new Error(t.ai.sessionExpired)
       }
 
       const response = await fetch("/api/ai-assistant", {
@@ -139,9 +136,9 @@ export function AIAssistant() {
         const errorData = await response.json().catch(() => ({}))
         if (errorData.quota) setQuota(errorData.quota)
         if (errorData.code === "auth_required") {
-          throw new Error("Сессия истекла. Войдите снова.")
+          throw new Error(t.ai.sessionExpired)
         }
-        throw new Error(errorData.error || "Не удалось получить ответ. Попробуйте ещё раз.")
+        throw new Error(errorData.error || t.ai.failed)
       }
 
       const data = await response.json()
@@ -157,7 +154,7 @@ export function AIAssistant() {
       setError(
         error instanceof Error && error.message
           ? error.message
-          : "Не удалось получить ответ. Попробуйте ещё раз."
+          : t.ai.failed
       )
     } finally {
       setIsLoading(false)
@@ -171,12 +168,12 @@ export function AIAssistant() {
       <SheetTrigger asChild>
         <Button
           variant="outline"
-          size="sm"
-          className="rounded-full border-emerald-600 bg-gradient-to-r from-emerald-500/10 to-green-600/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500 gap-2 relative overflow-hidden group"
+          aria-label={t.ai.open}
+          className="size-11 p-0 sm:h-9 sm:w-auto sm:px-3 rounded-full border-emerald-600 bg-gradient-to-r from-emerald-500/10 to-green-600/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500 gap-2 relative overflow-hidden group"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
           <Bot className="h-4 w-4 relative z-10" />
-          <span className="hidden sm:inline relative z-10">ИИ Помощник</span>
+          <span className="hidden sm:inline relative z-10">{t.ai.open}</span>
         </Button>
       </SheetTrigger>
       <SheetContent
@@ -184,13 +181,13 @@ export function AIAssistant() {
         className="w-full sm:w-[90vw] md:w-[600px] sm:max-w-[600px] bg-[#0d1210] border-gray-800 p-0 flex flex-col [&>button]:hidden"
       >
         {/* Header */}
-        <SheetHeader className="px-6 py-4 border-b border-gray-800 bg-gradient-to-r from-[#0a0f0d] to-[#0d1914] shrink-0">
+        <SheetHeader className="px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-gray-800 bg-gradient-to-r from-[#0a0f0d] to-[#0d1914] shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-white flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
                 <Bot className="h-4 w-4 text-white" />
               </div>
-              ИИ Помощник
+              {t.ai.title}
             </SheetTitle>
             <div className="flex items-center gap-2">
               {user && messages.length > 0 && (
@@ -198,31 +195,29 @@ export function AIAssistant() {
                   variant="ghost"
                   size="sm"
                   onClick={clearHistory}
-                  className="text-gray-400 hover:text-white text-xs"
+                  className="h-11 sm:h-8 text-gray-400 hover:text-white text-xs"
                 >
-                  Очистить
+                  {t.ai.clear}
                 </Button>
               )}
               <SheetClose asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg"
+                  aria-label={t.ai.close}
+                  className="size-11 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg"
                 >
                   <X className="h-5 w-5" />
-                  <span className="sr-only">Закрыть</span>
                 </Button>
               </SheetClose>
             </div>
           </div>
-          <p className="text-sm text-emerald-400/80 mt-1 flex items-center gap-1.5">
-            <TrendingUp className="h-3.5 w-3.5" />
-            {notes.length > 0
-              ? `Анализирую ${notes.length} ${notes.length === 1 ? "заметку" : notes.length < 5 ? "заметки" : "заметок"} для персональных советов`
-              : "Создайте заметки, чтобы я давал персональные советы"}
-          </p>
+          <SheetDescription className="text-sm text-emerald-400/80 mt-1 flex items-center gap-1.5">
+            <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
+            {notes.length > 0 ? plural(locale, notes.length, t.ai.notesUsed) : t.ai.noNotes}
+          </SheetDescription>
           {user && (
-            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500">
+            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-400">
               <span className="truncate">{user.email}</span>
               <button
                 type="button"
@@ -230,10 +225,10 @@ export function AIAssistant() {
                   setError(null)
                   signOut()
                 }}
-                className="flex shrink-0 items-center gap-1 transition-colors hover:text-gray-300"
+                className="flex min-h-11 shrink-0 items-center gap-1 transition-colors hover:text-gray-300 sm:min-h-0"
               >
                 <LogOut className="h-3 w-3" />
-                Выйти
+                {t.ai.signOut}
               </button>
             </div>
           )}
@@ -246,10 +241,7 @@ export function AIAssistant() {
                 <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
               </div>
             ) : (
-              <AuthForm
-                title="Войдите, чтобы пользоваться ИИ-помощником"
-                description="Это бесплатно. Вход защищает помощника от ботов — так он остаётся бесплатным для школьников."
-              />
+              <AuthForm title={t.ai.signInTitle} description={t.ai.signInText} />
             )}
           </div>
         ) : (
@@ -264,23 +256,16 @@ export function AIAssistant() {
                   <Bot className="h-8 w-8 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-gray-300 text-base font-medium">
-                    Привет! Я ваш персональный ИИ-помощник
-                  </p>
-                  <p className="text-gray-500 text-sm mt-2">
-                    Я читаю ваши заметки и даю советы на их основе
-                  </p>
+                  <p className="text-gray-300 text-base font-medium">{t.ai.greeting}</p>
+                  <p className="text-gray-400 text-sm mt-2">{t.ai.greetingText}</p>
                 </div>
                 <div className="grid grid-cols-1 gap-2 max-w-sm mx-auto mt-6">
-                  {[
-                    "Помоги выбрать олимпиаду",
-                    "Какие навыки мне развивать?",
-                    "Оцени мое портфолио",
-                  ].map((suggestion) => (
+                  {t.ai.suggestions.map((suggestion) => (
                     <button
                       key={suggestion}
+                      type="button"
                       onClick={() => setInput(suggestion)}
-                      className="text-left px-4 py-2.5 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 text-sm transition-colors border border-gray-700/50 hover:border-emerald-500/30"
+                      className="min-h-11 text-left px-4 py-2.5 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 text-sm transition-colors border border-gray-700/50 hover:border-emerald-500/30"
                     >
                       {suggestion}
                     </button>
@@ -316,10 +301,10 @@ export function AIAssistant() {
                     </p>
                     <p
                       className={`text-xs mt-2 ${
-                        message.role === "user" ? "text-emerald-100/60" : "text-gray-600"
+                        message.role === "user" ? "text-emerald-100/60" : "text-gray-400"
                       }`}
                     >
-                      {new Date(message.timestamp).toLocaleTimeString("ru-RU", {
+                      {new Date(message.timestamp).toLocaleTimeString(HTML_LANG[locale], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
@@ -338,7 +323,7 @@ export function AIAssistant() {
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-                      <span className="text-sm text-gray-400">Думаю...</span>
+                      <span className="text-sm text-gray-400">{t.ai.thinking}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -361,10 +346,11 @@ export function AIAssistant() {
 
         {/* Input */}
         {user && (
-        <div className="px-6 py-4 border-t border-gray-800 bg-[#0a0f0d] shrink-0">
+        <div className="px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-800 bg-[#0a0f0d] shrink-0">
           <div className="flex gap-2">
             <Textarea
-              placeholder="Спросите о ваших целях, портфолио..."
+              placeholder={t.ai.inputPlaceholder}
+              aria-label={t.ai.inputLabel}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -374,27 +360,26 @@ export function AIAssistant() {
                 }
               }}
               rows={2}
-              className="resize-none bg-[#0d1210] border-gray-700 text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20"
+              className="resize-none bg-[#0d1210] border-gray-700 text-base sm:text-sm text-white placeholder:text-gray-500 focus:border-emerald-500/50 focus:ring-emerald-500/20"
             />
             <Button
               onClick={sendMessage}
               disabled={!input.trim() || isLoading}
-              className="shrink-0 h-auto bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white disabled:opacity-50"
+              aria-label={t.ai.send}
+              className="shrink-0 h-auto min-w-11 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white disabled:opacity-50"
             >
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-xs text-gray-600 mt-2 flex items-center gap-1.5">
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
             <Sparkles className="h-3 w-3" />
-            {notes.length > 0
-              ? `${notes.length} ${notes.length === 1 ? "заметка" : notes.length < 5 ? "заметки" : "заметок"} используется для контекста`
-              : "Добавьте заметки для персональных рекомендаций"}
+            {notes.length > 0 ? plural(locale, notes.length, t.ai.contextNotes) : t.ai.contextNone}
           </p>
           {quota && (
-            <p className={`text-xs mt-1 ${quota.used >= quota.limit ? "text-amber-400" : "text-gray-500"}`}>
+            <p className={`text-xs mt-1 ${quota.used >= quota.limit ? "text-amber-400" : "text-gray-400"}`}>
               {quota.used >= quota.limit
-                ? "Лимит на сегодня исчерпан — возвращайтесь завтра"
-                : `Сегодня осталось ${quota.limit - quota.used} ${messagesWord(quota.limit - quota.used)} из ${quota.limit}`}
+                ? t.ai.quotaExhausted
+                : format(plural(locale, quota.limit - quota.used, t.ai.quotaLeft), { limit: quota.limit })}
             </p>
           )}
         </div>

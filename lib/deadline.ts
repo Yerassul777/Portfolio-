@@ -14,11 +14,19 @@ export function isDeadlinePassed(deadline: string | null | undefined, today = to
   return date !== null && date < today
 }
 
-export function formatDeadline(deadline: string, month: "short" | "long" = "short"): string {
+/** Whole days from today to the deadline: 0 on the last day, negative once passed. */
+export function daysUntil(deadline: string | null | undefined, today = todayInAlmaty()): number | null {
+  const date = datePart(deadline)
+  if (!date) return null
+  return Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
+}
+
+/** `lang` is a BCP 47 tag, e.g. HTML_LANG[locale]. */
+export function formatDeadline(deadline: string, month: "short" | "long" = "short", lang = "ru"): string {
   const date = datePart(deadline)
   if (!date) return deadline
   // Midnight UTC formatted in UTC, so the printed day never shifts with the reader's time zone.
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("ru-RU", {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(lang, {
     day: "numeric",
     month,
     year: "numeric",
