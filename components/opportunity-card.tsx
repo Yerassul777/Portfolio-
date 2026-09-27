@@ -30,7 +30,7 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
         event.preventDefault()
         onOpen(opportunity)
       }}
-      className="group flex h-full flex-col overflow-hidden rounded-xl border border-emerald-500/10 bg-[#0d1a14]/60 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 active:scale-[0.99] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-emerald-500/10 bg-[#0d1a14]/60 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-1 hover:border-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 active:scale-[0.99] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
       {image && (
         <div className="relative h-44 shrink-0 overflow-hidden bg-emerald-950/40">

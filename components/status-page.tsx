@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 /** Centered message with actions: 404, errors. Works in server and client components. */
 export function StatusPage({ code, title, text, children }: { code: string; title: string; text: string; children: ReactNode }) {
   return (
-    <div className="container mx-auto flex min-h-[60dvh] max-w-xl flex-col items-center justify-center gap-5 px-4 py-16 text-center">
+    <div className="container mx-auto flex min-h-[60svh] max-w-xl flex-col items-center justify-center gap-5 px-4 py-16 text-center">
       <p className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-7xl font-bold text-transparent">{code}</p>
       <h1 className="text-2xl font-bold text-white sm:text-3xl">{title}</h1>
       <p className="text-muted-foreground">{text}</p>

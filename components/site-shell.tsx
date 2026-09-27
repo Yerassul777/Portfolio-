@@ -24,7 +24,7 @@ export function SiteShell({ locale, children }: { locale: Locale; children: Reac
   const t = getDictionary(locale)
 
   return (
-    <div className="relative min-h-dvh bg-[#0a0f0d]">
+    <div className="relative min-h-svh bg-[#0a0f0d]">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-emerald-500 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-950"
@@ -32,11 +32,24 @@ export function SiteShell({ locale, children }: { locale: Locale; children: Reac
         {t.header.skipToContent}
       </a>
 
-      {/* Static background: two soft glows and a faint grid, no animation. */}
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0f0d] via-[#0d1a14] to-[#0a0f0d]" />
-        <div className="absolute -right-40 -top-40 h-[640px] w-[640px] rounded-full bg-emerald-500/[0.05] blur-[140px]" />
-        <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-emerald-600/[0.04] blur-[140px]" />
+      {/*
+        Static background: two soft glows and a faint grid, no animation.
+        The glows are radial gradients, not blurred circles: a CSS blur filter
+        this size has to be re-rasterised on phones whenever the viewport
+        changes, which showed up as stutter on the first scroll. The layer is
+        100lvh tall, so it does not resize when the mobile URL bar hides.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 z-0 h-lvh"
+        style={{
+          backgroundImage: [
+            "radial-gradient(circle at 100% 0%, rgba(16,185,129,0.07), transparent 480px)",
+            "radial-gradient(circle at 0% 100%, rgba(5,150,105,0.06), transparent 420px)",
+            "linear-gradient(to bottom, #0a0f0d, #0d1a14, #0a0f0d)",
+          ].join(","),
+        }}
+      >
         <div
           className="absolute inset-0 opacity-[0.02]"
           style={{
@@ -47,7 +60,8 @@ export function SiteShell({ locale, children }: { locale: Locale; children: Reac
         />
       </div>
 
-      <header className="sticky top-0 z-40 border-b border-emerald-500/10 bg-[#0a0f0d]/80 pt-[env(safe-area-inset-top)] backdrop-blur-md">
+      {/* backdrop-blur only from sm up: on phones it re-blurs the page under the header on every scroll frame. */}
+      <header className="sticky top-0 z-40 border-b border-emerald-500/10 bg-[#0a0f0d] pt-[env(safe-area-inset-top)] sm:bg-[#0a0f0d]/80 sm:backdrop-blur-md">
         <div className="container mx-auto flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href={`/${locale}`} title={t.header.home} className="flex min-h-11 min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
             <Logo />
