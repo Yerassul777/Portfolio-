@@ -47,7 +47,9 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
 
           <div className="space-y-3 sm:space-y-4">
             <h1 className={`font-bold tracking-tight ${compact ? "text-4xl sm:text-5xl" : "text-4xl sm:text-6xl lg:text-7xl"}`}>
-              <span className="text-white">{t.hero.titleLine1}</span>{" "}
+              <span className="text-white">{t.hero.titleLine1}</span>
+              {/* Always two lines: their height must not depend on which font rendered them. */}
+              <br />
               <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent">
                 {t.hero.titleLine2}
               </span>
