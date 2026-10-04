@@ -31,11 +31,13 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
         className="absolute inset-0"
         style={{
           backgroundImage: [
-            "linear-gradient(to bottom, transparent 55%, #0a0f0d)",
             "radial-gradient(circle at 78% 35%, rgba(16,185,129,0.1), transparent 460px)",
             "radial-gradient(circle at 22% 75%, rgba(5,150,105,0.08), transparent 400px)",
             "linear-gradient(to bottom right, #0a0f0d, #0d1a14, #0f261c)",
           ].join(","),
+          // Fades out into whatever is behind it, so the hero has no bottom edge.
+          maskImage: "linear-gradient(to bottom, black 55%, transparent)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent)",
         }}
       />
 
