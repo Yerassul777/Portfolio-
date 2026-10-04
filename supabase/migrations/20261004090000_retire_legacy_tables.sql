@@ -55,8 +55,11 @@ where slug = 'astana-jastary-b35d02' and link like 'https://www.instagram.com/as
 -- ---------------------------------------------------------------------------
 -- 3. Inline base64 images become static files (public/images/opportunities),
 --    served from the CDN and cached, instead of 5-10 KB inside every HTML
---    page and its RSC payload.
+--    page and its RSC payload. The image check now admits those site paths
+--    and no longer admits data: URLs, so blobs cannot come back.
 -- ---------------------------------------------------------------------------
+alter table public.opportunities drop constraint opportunities_image_is_web_or_data;
+
 update public.opportunities set image_url = '/images/opportunities/rnpts-daryn-642adc-90570c37eb.jpg'
 where slug = 'rnpts-daryn-642adc' and image_url like 'data:image/%';
 update public.opportunities set image_url = '/images/opportunities/infomatrix-2a0907-7e7585ee72.jpg'
@@ -65,3 +68,13 @@ update public.opportunities set image_url = '/images/opportunities/astana-jastar
 where slug = 'astana-jastary-b35d02' and image_url like 'data:image/%';
 update public.opportunities set image_url = '/images/opportunities/nazarbayev-university-08558f-b361701093.jpg'
 where slug = 'nazarbayev-university-08558f' and image_url like 'data:image/%';
+
+alter table public.opportunities
+  add constraint opportunities_image_is_web_or_site_file
+    check (image_url is null or image_url ~* '^(https?://|/images/opportunities/[a-z0-9._-]+$)');
+
+-- ---------------------------------------------------------------------------
+-- 4. Every row now passes both checks, so they hold for all rows, not only
+--    new writes (they were added NOT VALID because of the rows fixed above).
+-- ---------------------------------------------------------------------------
+alter table public.opportunities validate constraint opportunities_link_is_web;
