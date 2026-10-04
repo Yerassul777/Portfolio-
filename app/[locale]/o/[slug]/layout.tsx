@@ -16,5 +16,5 @@ export default async function OpportunityLayout({
   const { locale, slug } = await params
   if (!isEnabledLocale(locale)) notFound()
   if (!(await getOpportunity(slug))) notFound()
-  return <SiteShell locale={locale}>{children}</SiteShell>
+  return <SiteShell>{children}</SiteShell>
 }

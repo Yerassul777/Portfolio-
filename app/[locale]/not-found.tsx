@@ -10,7 +10,7 @@ import { StatusPage, statusButtonClass } from "@/components/status-page"
 export default function NotFound() {
   const { locale, t } = useI18n()
   return (
-    <SiteShell locale={locale}>
+    <SiteShell>
       <StatusPage code="404" title={t.notFound.title} text={t.notFound.text}>
         <Link href={`/${locale}`} className={statusButtonClass}>
           {t.notFound.home}

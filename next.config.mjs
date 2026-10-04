@@ -56,6 +56,11 @@ const nextConfig = {
   experimental: {
     // A styled 404 for URLs outside /[locale], which has no single root layout.
     globalNotFound: true,
+    // The stylesheet (~15 KB gzipped, Tailwind) goes into the HTML instead of
+    // a separate render-blocking request. On a slow mobile link that request
+    // shared bandwidth with the JavaScript and held the first paint until
+    // ~2.4 s; inlined, text paints as soon as the HTML arrives.
+    inlineCss: true,
   },
   // Fonts for the link-preview images are read from disk at runtime.
   outputFileTracingIncludes: {
@@ -71,7 +76,17 @@ const nextConfig = {
     ]
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }]
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The service worker must be re-checked on every visit, or an old one
+      // could keep serving old pages after a deploy.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+      // File names carry a content hash, so they never change in place.
+      {
+        source: "/images/opportunities/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ]
   },
 }
 

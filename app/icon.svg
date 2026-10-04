@@ -1,26 +1,8 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @media (prefers-color-scheme: light) {
-      .background { fill: black; }
-      .foreground { fill: white; }
-    }
-    @media (prefers-color-scheme: dark) {
-      .background { fill: white; }
-      .foreground { fill: black; }
-    }
-  </style>
-  <g clip-path="url(#clip0_7960_43945)">
-    <rect class="background" width="180" height="180" rx="37" />
-    <g style="transform: scale(95%); transform-origin: center">
-      <path class="foreground"
-        d="M101.141 53H136.632C151.023 53 162.689 64.6662 162.689 79.0573V112.904H148.112V79.0573C148.112 78.7105 148.098 78.3662 148.072 78.0251L112.581 112.898C112.701 112.902 112.821 112.904 112.941 112.904H148.112V126.672H112.941C98.5504 126.672 86.5638 114.891 86.5638 100.5V66.7434H101.141V100.5C101.141 101.15 101.191 101.792 101.289 102.422L137.56 66.7816C137.255 66.7563 136.945 66.7434 136.632 66.7434H101.141V53Z" />
-      <path class="foreground"
-        d="M65.2926 124.136L14 66.7372H34.6355L64.7495 100.436V66.7372H80.1365V118.47C80.1365 126.278 70.4953 129.958 65.2926 124.136Z" />
-    </g>
-  </g>
-  <defs>
-    <clipPath id="clip0_7960_43945">
-      <rect width="180" height="180" fill="white" />
-    </clipPath>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#10b981"/>
+    <stop offset="1" stop-color="#16a34a"/>
+  </linearGradient></defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <path fill="#fff" d="M17.51 43.85L12.16 43.85L12.16 18.87L22.15 18.87Q26.65 18.87 29.20 21.05Q31.75 23.23 31.75 27.03L31.75 27.03Q31.75 29.53 30.61 31.38Q29.47 33.22 27.30 34.23Q25.14 35.23 22.15 35.23L22.15 35.23L17.51 35.23L17.51 43.85ZM17.51 23.37L17.51 30.73L21.83 30.73Q23.94 30.73 25.11 29.79Q26.27 28.86 26.27 27.03L26.27 27.03Q26.27 25.24 25.12 24.31Q23.98 23.37 21.83 23.37L21.83 23.37L17.51 23.37ZM45.37 42.37L41.08 42.37L41.08 25.13L45.37 25.13L45.37 42.37ZM51.84 35.90L34.60 35.90L34.60 31.64L51.84 31.64L51.84 35.90Z"/>
 </svg>

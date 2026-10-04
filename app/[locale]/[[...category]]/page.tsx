@@ -7,7 +7,7 @@ import { isCategory, isRefined, parseCatalogueQuery, type CatalogueQuery } from 
 import { getDictionary } from "@/lib/i18n"
 import { isEnabledLocale, type Locale } from "@/lib/i18n/config"
 import { opportunityMetadata } from "@/lib/metadata"
-import { getCataloguePage, getOpportunity } from "@/lib/server-data"
+import { getCataloguePage, getHighlights, getOpportunity } from "@/lib/server-data"
 import { DEFAULT_CATEGORY, SITE_URL, categoryPath, opportunityPath } from "@/lib/site"
 
 type Props = {
@@ -54,14 +54,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function CataloguePage(props: Props) {
   const { locale, query } = await resolve(props)
   const t = getDictionary(locale)
-  const [page, open] = await Promise.all([
+  const compact = query.category !== DEFAULT_CATEGORY || isRefined(query) || query.open !== null
+  const [page, open, highlights] = await Promise.all([
     getCataloguePage(query),
     query.open ? getOpportunity(query.open) : Promise.resolve(null),
+    compact ? Promise.resolve(null) : getHighlights(),
   ])
 
   return (
     <>
-      <HeroSection t={t} compact={query.category !== DEFAULT_CATEGORY || isRefined(query) || query.open !== null} />
+      <HeroSection locale={locale} t={t} compact={compact} highlights={highlights} />
       <Catalogue initialQuery={query} initialPage={page} initialOpen={open} />
       {page && page.items.length > 0 && (
         <JsonLd

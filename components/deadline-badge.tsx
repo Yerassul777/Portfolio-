@@ -9,6 +9,23 @@ import { cn } from "@/lib/utils"
 
 // Deadlines within this many days get an "N days left" chip.
 const URGENT_DAYS = 14
+// The bar starts filling this many days before a deadline.
+const BAR_WINDOW_DAYS = 30
+
+/**
+ * How close an open deadline is, as a bar that fills up as it nears: green,
+ * amber within URGENT_DAYS, red in the last three days. Decorative: the same
+ * information is always in the text next to it.
+ */
+export function DeadlineBar({ days }: { days: number }) {
+  const fill = Math.min(1, Math.max(0.04, 1 - days / BAR_WINDOW_DAYS))
+  const color = days <= 3 ? "bg-red-400" : days <= URGENT_DAYS ? "bg-amber-400" : "bg-emerald-400"
+  return (
+    <span aria-hidden="true" className="block h-1 overflow-hidden rounded-full bg-white/10">
+      <span className={cn("block h-full rounded-full", color)} style={{ width: `${Math.round(fill * 100)}%` }} />
+    </span>
+  )
+}
 
 export function DeadlineBadge({ deadline, long = false }: { deadline: string; long?: boolean }) {
   const { locale, t } = useI18n()

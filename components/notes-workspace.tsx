@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { Briefcase, Cloud, GraduationCap, Loader2, Plus, Save, Sparkles, StickyNote, Target, Trash2, X, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { AuthForm } from "@/components/auth-form"
 import { useAuth } from "@/components/auth-provider"
@@ -28,10 +28,20 @@ const AUTOSAVE_MS = 700
 
 type Editing = { id: string; title: string; content: string }
 
-export function NotesWorkspace() {
+interface NotesPanelProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** The header button, which gets focus back when the panel closes. */
+  returnFocusRef: RefObject<HTMLButtonElement | null>
+}
+
+/**
+ * The notes panel. HeaderTools renders the header button and loads this
+ * module on demand, so none of it is in the page's initial JavaScript.
+ */
+export function NotesPanel({ open, onOpenChange: setOpen, returnFocusRef }: NotesPanelProps) {
   const { locale, t } = useI18n()
   const { user } = useAuth()
-  const [open, setOpen] = useState(false)
   const data = useNotesData(open)
   const { notes, update } = data
   const [isCreating, setIsCreating] = useState(false)
@@ -108,19 +118,13 @@ export function NotesWorkspace() {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          aria-label={t.notes.open}
-          className="size-11 gap-2 rounded-full border-gray-700 bg-transparent p-0 text-gray-300 hover:border-emerald-500/50 hover:bg-gray-800/50 hover:text-white sm:h-9 sm:w-auto sm:px-3"
-        >
-          <StickyNote className="h-4 w-4" />
-          <span className="hidden sm:inline">{t.notes.open}</span>
-        </Button>
-      </SheetTrigger>
       <SheetContent
         side="right"
         className="flex w-full flex-col overflow-hidden border-gray-800 bg-[#0d1210] p-0 sm:w-[90vw] sm:max-w-[600px] md:w-[600px] [&>button]:hidden"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocusRef.current?.focus()
+        }}
       >
         <SheetHeader className="border-b border-gray-800 bg-[#0a0f0d] px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">

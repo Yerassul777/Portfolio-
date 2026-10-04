@@ -28,3 +28,9 @@ yarn-error.log*
 next-env.d.ts
 .vercel
 .env*
+
+# local database backups (kept in OneDrive, not in git)
+/supabase/backups/
+
+# Lighthouse CI output
+/.lighthouseci/

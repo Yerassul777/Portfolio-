@@ -1,4 +1,5 @@
 import type { PluralForms } from "../format"
+import { ruError } from "./ru-error"
 
 // Every string the interface shows. Filter vocabulary (subjects, cities, levels)
 // stays in FILTER_CONFIGS in lib/types.ts, the single source the UI, the admin
@@ -23,7 +24,11 @@ export const ru = {
     titleLine2: "возможность",
     subtitle:
       "Олимпиады, соревнования, волонтёрство и лучшие университеты Казахстана — всё в одном месте для построения твоего успешного будущего",
-    cta: "Начать поиск",
+    searchPlaceholder: "Физика, хакатон, Алматы…",
+    searchButton: "Найти",
+    soonTitle: "Ближайшие дедлайны",
+    openCount: ["{n} открытая возможность", "{n} открытые возможности", "{n} открытых возможностей"] as PluralForms,
+    closingSoon: ["{n} закрывается за 7 дней", "{n} закрываются за 7 дней", "{n} закрываются за 7 дней"] as PluralForms,
   },
   categories: {
     olympiads: {
@@ -68,6 +73,7 @@ export const ru = {
     empty: "В этой категории пока нет записей. Загляните позже!",
     emptyFiltered: "Ничего не найдено. Попробуйте изменить запрос или фильтры.",
     showPastInstead: "Показать завершённые",
+    foundElsewhere: "Нашлось в других разделах:",
     resetSearchAndFilters: "Сбросить поиск и фильтры",
     loadError: "Не удалось загрузить данные. Проверьте подключение к интернету.",
     retry: "Повторить",
@@ -194,17 +200,17 @@ export const ru = {
     rights: "© {year} Portfolio+",
     tagline: "Платформа возможностей для молодёжи Казахстана",
   },
+  install: {
+    button: "Установить приложение",
+    iosStep1: "Нажмите «Поделиться» в панели браузера",
+    iosStep2: "Выберите «На экран Домой»",
+  },
   notFound: {
     title: "Страница не найдена",
     text: "Такой страницы нет. Возможно, ссылка устарела или в адресе опечатка.",
     home: "Перейти в каталог",
   },
-  error: {
-    title: "Что-то пошло не так",
-    text: "Мы уже знаем об ошибке. Попробуйте обновить страницу.",
-    retry: "Попробовать снова",
-    home: "На главную",
-  },
+  error: ruError,
 }
 
 type Widen<T> = T extends string

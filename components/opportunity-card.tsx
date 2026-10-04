@@ -2,8 +2,9 @@
 
 import { Calendar, GraduationCap, MapPin, Monitor } from "lucide-react"
 import { isPlainClick } from "@/components/category-nav"
-import { DeadlineBadge } from "@/components/deadline-badge"
+import { DeadlineBadge, DeadlineBar } from "@/components/deadline-badge"
 import { useI18n } from "@/components/i18n-provider"
+import { daysUntil } from "@/lib/deadline"
 import { opportunityPath } from "@/lib/site"
 import { getFilterLabel, type Opportunity } from "@/lib/types"
 
@@ -21,6 +22,7 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
   const { kind, image_url: image } = opportunity
   const city = opportunity.city ? getFilterLabel(kind, "city", opportunity.city) : null
   const mode = opportunity.format ? getFilterLabel(kind, "format", opportunity.format) : null
+  const days = opportunity.deadline ? daysUntil(opportunity.deadline) : null
 
   return (
     <a
@@ -84,15 +86,18 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
 
         <p className="line-clamp-3 flex-1 text-sm leading-relaxed text-muted-foreground">{opportunity.description}</p>
 
-        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-          {opportunity.deadline ? (
-            <DeadlineBadge deadline={opportunity.deadline} />
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
-              <Calendar aria-hidden="true" className="h-3 w-3" />
-              {t.card.noDeadline}
-            </span>
-          )}
+        <div className="space-y-3 border-t pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {opportunity.deadline ? (
+              <DeadlineBadge deadline={opportunity.deadline} />
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                <Calendar aria-hidden="true" className="h-3 w-3" />
+                {t.card.noDeadline}
+              </span>
+            )}
+          </div>
+          {days !== null && days >= 0 && <DeadlineBar days={days} />}
         </div>
       </div>
     </a>

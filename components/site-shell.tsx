@@ -1,10 +1,11 @@
+"use client"
+
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { AIAssistant } from "@/components/ai-assistant"
-import { NotesWorkspace } from "@/components/notes-workspace"
-import { getDictionary } from "@/lib/i18n"
+import { HeaderTools } from "@/components/header-tools"
+import { InstallAppButton } from "@/components/install-app"
+import { useI18n } from "@/components/i18n-provider"
 import { format } from "@/lib/i18n/format"
-import type { Locale } from "@/lib/i18n/config"
 
 function Logo({ small = false }: { small?: boolean }) {
   return (
@@ -19,9 +20,16 @@ function Logo({ small = false }: { small?: boolean }) {
   )
 }
 
-/** Header, background and footer shared by every public page. */
-export function SiteShell({ locale, children }: { locale: Locale; children: ReactNode }) {
-  const t = getDictionary(locale)
+/**
+ * Header, background and footer shared by every public page.
+ *
+ * A client component on purpose: app/[locale]/not-found.tsx is a client
+ * boundary that wraps itself in this shell, and a shell that called
+ * getDictionary() pulled every interface string into the JavaScript of every
+ * page. Here the strings come from I18nProvider, which already has them.
+ */
+export function SiteShell({ children }: { children: ReactNode }) {
+  const { locale, t } = useI18n()
 
   return (
     <div className="relative min-h-svh bg-[#0a0f0d]">
@@ -71,8 +79,7 @@ export function SiteShell({ locale, children }: { locale: Locale; children: Reac
             </span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
-            <AIAssistant />
-            <NotesWorkspace />
+            <HeaderTools />
           </div>
         </div>
       </header>
@@ -90,7 +97,10 @@ export function SiteShell({ locale, children }: { locale: Locale; children: Reac
               <div className="text-xs text-gray-400">{format(t.footer.rights, { year: new Date().getFullYear() })}</div>
             </div>
           </div>
-          <p className="text-center text-sm text-gray-400 md:text-right">{t.footer.tagline}</p>
+          <div className="flex flex-col items-center gap-4 md:items-end">
+            <p className="text-center text-sm text-gray-400 md:text-right">{t.footer.tagline}</p>
+            <InstallAppButton />
+          </div>
         </div>
       </footer>
     </div>

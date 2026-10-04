@@ -1,17 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
+import dynamic from "next/dynamic"
 import { usePathname, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { Search, SearchX, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { CategoryNav } from "@/components/category-nav"
+import { CatalogueSkeleton } from "@/components/catalogue-skeleton"
+import { CategoryNav, isPlainClick } from "@/components/category-nav"
 import { FilterDialog } from "@/components/filter-dialog"
 import { useI18n } from "@/components/i18n-provider"
 import { OpportunityCard } from "@/components/opportunity-card"
-import { OpportunityDialog } from "@/components/opportunity-dialog"
 import { Pagination } from "@/components/pagination"
 import { QuickFilters } from "@/components/quick-filters"
 import {
@@ -19,9 +19,10 @@ import {
   activeFilterCount,
   catalogueHref,
   catalogueKey,
+  countByCategory,
+  categoryFromPathname,
   fetchCataloguePage,
   fetchOpportunityBySlug,
-  isCategory,
   parseCatalogueQuery,
   type CatalogueQuery,
   type CataloguePage,
@@ -31,15 +32,16 @@ import { plural } from "@/lib/i18n/format"
 import { MAX_QUERY_LENGTH } from "@/lib/search"
 import { DEFAULT_CATEGORY } from "@/lib/site"
 import { loadSupabase } from "@/lib/supabase-browser"
-import { QUICK_FILTERS, type Category, type Filters, type Opportunity } from "@/lib/types"
+import { CATEGORIES, QUICK_FILTERS, type Category, type Filters, type Opportunity } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const SEARCH_DEBOUNCE_MS = 350
 
-function categoryFromPath(pathname: string): Category {
-  const segment = pathname.split("/")[2]
-  return segment && isCategory(segment) ? segment : DEFAULT_CATEGORY
-}
+// The dialog (and the Radix dialog machinery behind it) loads on first use;
+// it was never in the server HTML anyway, since dialogs render in a portal.
+const OpportunityDialog = dynamic(() => import("@/components/opportunity-dialog").then((m) => m.OpportunityDialog), {
+  ssr: false,
+})
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -62,7 +64,7 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
   const { locale, t } = useI18n()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const category = categoryFromPath(pathname)
+  const category = categoryFromPathname(pathname)
   const query = useMemo(() => parseCatalogueQuery(category, searchParams), [category, searchParams])
   const topRef = useRef<HTMLDivElement>(null)
 
@@ -127,6 +129,18 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
     }
   )
   const updating = isValidating && !!data
+  // Cards that appear after a change (search, filter, page) fade in; the
+  // server-rendered first page does not, so nothing delays the first paint.
+  const animateCards = key !== initialKey
+
+  // A search that found nothing here may have found something elsewhere.
+  const lookElsewhere = !!data && data.total === 0 && query.q !== ""
+  const { data: elsewhere } = useSWR(
+    lookElsewhere ? ["elsewhere", query.q, query.showPast] : null,
+    async ([, q, showPast]) => countByCategory(await loadSupabase(), q, !showPast),
+    { revalidateOnFocus: false, dedupingInterval: 30_000 }
+  )
+  const elsewhereCategories = elsewhere ? CATEGORIES.filter((c) => c !== category && elsewhere[c] > 0) : []
 
   // --- detail dialog, driven by ?o=<slug> ---------------------------------------
   const listed = query.open ? data?.items.find((item) => item.slug === query.open) : undefined
@@ -140,6 +154,9 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
     }
   )
   const openItem = query.open ? (listed ?? fetchedOpen) : null
+  // Mounted from the first opening on, so closing can still animate.
+  const [dialogMounted, setDialogMounted] = useState(query.open !== null)
+  if (query.open !== null && !dialogMounted) setDialogMounted(true)
 
   // Opened by a click here: closing goes Back, so the history has no dead entry.
   // Opened from a shared link: closing just drops ?o= from the URL.
@@ -207,7 +224,11 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
         )}
       >
         {data.items.map((opportunity, index) => (
-          <li key={opportunity.id}>
+          <li
+            key={opportunity.id}
+            className={animateCards ? "card-enter" : undefined}
+            style={animateCards ? ({ "--i": index } as CSSProperties) : undefined}
+          >
             <OpportunityCard opportunity={opportunity} onOpen={openDetails} priority={index < 4} />
           </li>
         ))}
@@ -241,6 +262,32 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
             </Button>
           )}
         </div>
+        {elsewhere && elsewhereCategories.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">{t.catalogue.foundElsewhere}</p>
+            <ul className="flex flex-wrap justify-center gap-2">
+              {elsewhereCategories.map((other) => {
+                const target = { ...query, category: other, filters: {}, page: 1, open: null }
+                return (
+                  <li key={other}>
+                    <a
+                      href={catalogueHref(locale, target)}
+                      onClick={(event) => {
+                        if (!isPlainClick(event)) return
+                        event.preventDefault()
+                        go(target)
+                      }}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary transition-[transform,background-color] hover:bg-primary/20 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                    >
+                      {t.categories[other].label}
+                      <span className="rounded-full bg-primary/20 px-2 text-xs">{elsewhere[other]}</span>
+                    </a>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
       </div>
     )
   }
@@ -342,17 +389,7 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
         </div>
       </div>
 
-      <OpportunityDialog open={query.open !== null} opportunity={openItem} onClose={closeDetails} />
+      {dialogMounted && <OpportunityDialog open={query.open !== null} opportunity={openItem} onClose={closeDetails} />}
     </section>
-  )
-}
-
-export function CatalogueSkeleton() {
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: 8 }, (_, i) => (
-        <Skeleton key={i} className="h-64 rounded-xl" />
-      ))}
-    </div>
   )
 }

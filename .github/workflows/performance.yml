@@ -1,0 +1,66 @@
+name: Performance budget
+
+# The performance contract (Phase 4), checked on every push and pull request.
+# A change that breaks it fails here instead of slowing the site down unnoticed:
+#   - initial JavaScript ≤ 200 KB gzip per page (scripts/check-js-budget.mjs)
+#   - Lighthouse, mobile, real network/CPU throttling, median of 3 runs
+#     (lighthouserc.json): performance ≥ 90, LCP ≤ 2.5 s, CLS ≤ 0.1,
+#     accessibility / best practices / SEO ≥ 95; TBT > 200 ms warns.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  budget:
+    runs-on: ubuntu-latest
+    env:
+      # Public values (they ship to every browser). Absent on Dependabot PRs,
+      # where the pages render without catalogue data and the budgets still apply.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3100
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm exec next build
+
+      - name: Start the site
+        run: |
+          pnpm exec next start -p 3100 > next.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:3100/ru && exit 0
+            sleep 2
+          done
+          cat next.log
+          exit 1
+
+      - name: Initial JavaScript budget
+        run: node scripts/check-js-budget.mjs http://localhost:3100 200 /ru /ru/competitions
+
+      - name: Lighthouse
+        run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - name: Keep the Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          if-no-files-found: ignore

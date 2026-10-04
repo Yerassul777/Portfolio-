@@ -19,5 +19,5 @@ export default async function CategoryLayout({
   if (category && (category.length > 1 || !isCategory(category[0]))) notFound()
   // The default category is the home page: one URL per page.
   if (category?.[0] === DEFAULT_CATEGORY) permanentRedirect(categoryPath(locale, DEFAULT_CATEGORY))
-  return <SiteShell locale={locale}>{children}</SiteShell>
+  return <SiteShell>{children}</SiteShell>
 }

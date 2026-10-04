@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Locale } from "@/lib/i18n/config"
 import { CATEGORIES, FILTER_CONFIGS, type Category, type Filters, type Opportunity } from "@/lib/types"
+import { daysUntil, todayInAlmaty } from "@/lib/deadline"
 import { buildSearchWords, MAX_QUERY_LENGTH, type SearchWord } from "@/lib/search"
-import { categoryPath } from "@/lib/site"
+import { DEFAULT_CATEGORY, categoryPath } from "@/lib/site"
 
 export const PAGE_SIZE = 24
 const MAX_PAGE = 1000
@@ -86,6 +87,18 @@ export function catalogueSearchParams(query: CatalogueQuery, { withOpen = true }
   return params
 }
 
+/** The category a catalogue URL path shows: /ru → the default one, /ru/competitions → competitions. */
+export function categoryFromPathname(pathname: string): Category {
+  const segment = pathname.split("/")[2]
+  return segment && isCategory(segment) ? segment : DEFAULT_CATEGORY
+}
+
+/** The catalogue state of the page the browser is on right now. */
+export function currentCatalogueQuery(): CatalogueQuery {
+  const category = categoryFromPathname(window.location.pathname)
+  return parseCatalogueQuery(category, new URLSearchParams(window.location.search))
+}
+
 export function catalogueHref(locale: Locale, query: CatalogueQuery): string {
   const params = catalogueSearchParams(query).toString()
   return categoryPath(locale, query.category) + (params ? `?${params}` : "")
@@ -167,6 +180,53 @@ export async function fetchCataloguePage(client: SupabaseClient, query: Catalogu
     countCatalogue(client, options),
   ])
   return { items, total }
+}
+
+/**
+ * How many open opportunities match a search in each category. Search runs
+ * inside one category at a time (words resolve against that category's
+ * filters), so this is what tells a search that found nothing here where it
+ * did find something.
+ */
+export async function countByCategory(client: SupabaseClient, q: string, onlyOpen = true): Promise<Record<Category, number>> {
+  const counts = await Promise.all(
+    CATEGORIES.map((kind) => countCatalogue(client, { kind, onlyOpen, search: buildSearchWords(q, kind) }))
+  )
+  return Object.fromEntries(CATEGORIES.map((kind, i) => [kind, counts[i]])) as Record<Category, number>
+}
+
+/** Where a search should land: here if it finds anything here, else the category that finds the most. */
+export function bestCategory(counts: Record<Category, number>, current: Category): Category {
+  if (counts[current] > 0) return current
+  return CATEGORIES.reduce((best, kind) => (counts[kind] > counts[best] ? kind : best), current)
+}
+
+export interface Highlights {
+  /** Open opportunities with the nearest deadlines, any category. */
+  soon: Opportunity[]
+  /** Open opportunities in the whole catalogue. */
+  openTotal: number
+  /** Of those, how many close within CLOSING_SOON_DAYS. */
+  closingSoon: number
+}
+
+export const CLOSING_SOON_DAYS = 7
+const HIGHLIGHT_SCAN = 50
+
+/** What the home page's first screen shows above the catalogue. */
+export async function fetchHighlights(client: SupabaseClient, soonCount = 3): Promise<Highlights> {
+  const today = todayInAlmaty()
+  const [nearest, openTotal] = await Promise.all([
+    // Sorted by nearest deadline, open ones only, so the ones with a deadline come first.
+    searchCatalogue(client, { onlyOpen: true, sort: "deadline", limit: HIGHLIGHT_SCAN }),
+    countCatalogue(client, { onlyOpen: true }),
+  ])
+  const dated = nearest.filter((o) => o.deadline && (daysUntil(o.deadline, today) ?? -1) >= 0)
+  return {
+    soon: dated.slice(0, soonCount),
+    openTotal,
+    closingSoon: dated.filter((o) => (daysUntil(o.deadline, today) ?? Infinity) <= CLOSING_SOON_DAYS).length,
+  }
 }
 
 export async function fetchOpportunityBySlug(client: SupabaseClient, slug: string): Promise<Opportunity | null> {

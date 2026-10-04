@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/components/auth-provider"
 import { I18nProvider } from "@/components/i18n-provider"
+import { PwaSetup } from "@/components/install-app"
 import { getDictionary } from "@/lib/i18n"
 import { DEFAULT_LOCALE, ENABLED_LOCALES, HTML_LANG, OG_LOCALE, isEnabledLocale, type Locale } from "@/lib/i18n/config"
 import { SITE_URL } from "@/lib/site"
@@ -40,6 +41,9 @@ export async function generateMetadata({ params }: Pick<LocaleLayoutProps, "para
     },
     twitter: { card: "summary_large_image" },
     formatDetection: { telephone: false },
+    // iOS has no install prompt and ignores most of the manifest: these make
+    // "Add to Home Screen" open the site full-screen, like an app.
+    appleWebApp: { capable: true, title: t.meta.siteName, statusBarStyle: "black-translucent" },
   }
 }
 
@@ -59,7 +63,9 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
         <I18nProvider locale={locale} dictionary={getDictionary(locale)}>
           <AuthProvider>{children}</AuthProvider>
         </I18nProvider>
-        <Analytics />
+        {/* The analytics script exists only on Vercel; elsewhere (Docker, CI, local) it is a 404 in the console. */}
+        {process.env.VERCEL && <Analytics />}
+        <PwaSetup />
       </body>
     </html>
   )

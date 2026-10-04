@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import { CatalogueSkeleton } from "@/components/catalogue"
+import { CatalogueSkeleton } from "@/components/catalogue-skeleton"
 
 // Shown while navigating to the catalogue from another page (e.g. back from an
 // opportunity page). Switching category or filters inside the catalogue never

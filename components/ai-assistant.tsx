@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useRef, type ReactNode, type RefObject } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
 import { Bot, Send, Loader2, Sparkles, TrendingUp, X, LogOut } from "lucide-react"
 import { AuthForm } from "@/components/auth-form"
 import { getAccessToken, useAuth } from "@/components/auth-provider"
@@ -48,7 +48,18 @@ function linkify(text: string) {
   return parts
 }
 
-export function AIAssistant() {
+interface AIAssistantPanelProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** The header button, which gets focus back when the panel closes. */
+  returnFocusRef: RefObject<HTMLButtonElement | null>
+}
+
+/**
+ * The assistant panel. HeaderTools renders the header button and loads this
+ * module on demand, so none of it is in the page's initial JavaScript.
+ */
+export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssistantPanelProps) {
   const { locale, t } = useI18n()
   const { user, loading: authLoading, signOut } = useAuth()
   // Tagged with the user it belongs to, so switching accounts never shows the previous user's allowance.
@@ -57,7 +68,6 @@ export function AIAssistant() {
   const setQuota = (next: Quota) => {
     if (user) setQuotaState({ userId: user.id, quota: next })
   }
-  const [open, setOpen] = useState(false)
   const chat = useChat(open)
   // Sent, not yet answered: shown under the history until the reply arrives.
   const [pending, setPending] = useState<Message | null>(null)
@@ -189,21 +199,14 @@ export function AIAssistant() {
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          aria-label={t.ai.open}
-          className="size-11 p-0 sm:h-9 sm:w-auto sm:px-3 rounded-full border-emerald-600 bg-gradient-to-r from-emerald-500/10 to-green-600/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500 gap-2 relative overflow-hidden group"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-          <Bot className="h-4 w-4 relative z-10" />
-          <span className="hidden sm:inline relative z-10">{t.ai.open}</span>
-        </Button>
-      </SheetTrigger>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         className="w-full sm:w-[90vw] md:w-[600px] sm:max-w-[600px] bg-[#0d1210] border-gray-800 p-0 flex flex-col [&>button]:hidden"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocusRef.current?.focus()
+        }}
       >
         {/* Header */}
         <SheetHeader className="px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-gray-800 bg-gradient-to-r from-[#0a0f0d] to-[#0d1914] shrink-0">
