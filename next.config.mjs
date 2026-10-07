@@ -41,6 +41,8 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
+  // Other sites cannot keep a handle on our window (sign-in uses redirects, not popups).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), browsing-topics=()" },
 ]
 
@@ -66,6 +68,7 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/[locale]/opengraph-image": ["./assets/fonts/**"],
     "/[locale]/o/[slug]/opengraph-image": ["./assets/fonts/**"],
+    "/api/portfolio/pdf": ["./assets/fonts/**"],
   },
   async redirects() {
     // Temporary (307): "/" may pick a language from the browser once there is

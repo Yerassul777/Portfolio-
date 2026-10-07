@@ -14,9 +14,8 @@ export default async function Image({ params }: { params: Promise<{ locale: stri
   const t = getDictionary(locale)
   const opportunity = await getOpportunity(slug)
 
-  if (!opportunity) {
-    return renderOgCard({ eyebrow: t.hero.badge, title: t.meta.title, site: t.meta.siteName })
-  }
+  // Unknown slug: a 404, not a freshly drawn PNG for every made-up URL.
+  if (!opportunity) return new Response(null, { status: 404 })
 
   return renderOgCard({
     eyebrow: t.categories[opportunity.kind].label,

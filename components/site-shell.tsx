@@ -88,7 +88,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <footer className="relative z-10 border-t border-emerald-500/10 py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+      <footer className="relative z-10 border-t border-emerald-500/10 py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] app:pb-10">
         <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 sm:px-6 md:flex-row lg:px-8">
           <div className="flex items-center gap-2">
             <Logo small />

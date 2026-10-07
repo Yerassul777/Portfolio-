@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button"
 import { DeadlineBadge } from "@/components/deadline-badge"
 import { useI18n } from "@/components/i18n-provider"
 import { ShareButton } from "@/components/share-button"
+import { FavoriteButton } from "@/components/favorite-button"
+import { CalendarLink, ParticipateButton } from "@/components/opportunity-actions"
 import { opportunityPath } from "@/lib/site"
 import { FILTER_CONFIGS, getFilterLabel, type Opportunity } from "@/lib/types"
 
@@ -94,6 +96,12 @@ export function OpportunityDetails({ opportunity, titleAs: Title = "h1", actions
           )}
         </div>
       </header>
+
+      <div className="flex flex-wrap gap-2">
+        <FavoriteButton opportunity={opportunity} withLabel />
+        <ParticipateButton opportunity={opportunity} />
+        <CalendarLink opportunity={opportunity} />
+      </div>
 
       <section aria-labelledby="details-about" className="space-y-2">
         <h2 id="details-about" className="text-xs font-medium uppercase tracking-wider text-gray-400">

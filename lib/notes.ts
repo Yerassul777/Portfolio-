@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import useSWR from "swr"
 import { useAuth } from "@/components/auth-provider"
 import { loadSupabase } from "@/lib/supabase-browser"
@@ -71,6 +71,9 @@ function validDate(value: string | undefined): string | undefined {
  * Moves the notes kept on this device into the account, once per user per
  * page load. Copy, confirm the copy is there, and only then remove the local
  * notes — and only those confirmed, so a failure never loses anything.
+ *
+ * Only when the user says so: on a shared computer the notes on the device
+ * may be someone else's (privacy review, R3).
  */
 const imports = new Map<string, Promise<void>>()
 
@@ -115,8 +118,33 @@ function importLocalNotes(userId: string): Promise<void> {
   return job
 }
 
+// "Keep them on the device" lasts for this browser session.
+function readKept(key: string | null): boolean {
+  if (!key) return false
+  try {
+    return sessionStorage.getItem(key) === "1"
+  } catch {
+    return false
+  }
+}
+
+function writeKept(key: string | null) {
+  if (!key) return
+  try {
+    sessionStorage.setItem(key, "1")
+  } catch {}
+}
+
 export type NotesData = {
   notes: Note[]
+  /** Signed in, with notes on this device written without an account: ask what to do with them. */
+  devicePending: number
+  /** Moves the device's notes into the account. */
+  importDevice: () => Promise<void>
+  /** Leaves them on the device and stops asking for this session. */
+  keepDevice: () => void
+  /** Deletes them from the device. */
+  discardDevice: () => void
   /** Stored in the account (signed in) rather than on this device. */
   synced: boolean
   /** False while the account's notes are still loading. */
@@ -140,22 +168,22 @@ export function useNotesData(active: boolean): NotesData {
   const key = active && userId ? (["notes", userId] as const) : null
   const { data, error, mutate } = useSWR(key, fetchNotes, { revalidateOnFocus: true, dedupingInterval: 5_000 })
 
-  useEffect(() => {
-    if (!active || !userId || local.length === 0) return
-    importLocalNotes(userId)
-      .then(() => mutate())
-      .catch((err) => console.error("Moving notes to the account failed:", err))
-  }, [active, userId, local.length, mutate])
+  // Signed in, the account's notes only; the device's are offered separately.
+  const notes = useMemo(() => (userId ? (data ?? []) : local), [userId, data, local])
+  const keptKey = userId ? `portfolio-keep-device-notes:${userId}` : null
+  const [keptFor, setKeptFor] = useState<string | null>(null)
+  const devicePending = userId && local.length > 0 && keptFor !== userId && !readKept(keptKey) ? local.length : 0
 
-  // Until the upload finishes, show the device's notes alongside the
-  // account's, so nothing disappears for a moment after signing in.
-  const notes = useMemo(() => {
-    if (!userId) return local
-    const account = data ?? []
-    if (local.length === 0) return account
-    const ids = new Set(account.map((n) => n.id))
-    return [...account, ...local.filter((n) => !ids.has(n.id))].sort(byUpdatedDesc)
-  }, [userId, data, local])
+  const importDevice = useCallback(async () => {
+    if (!userId) return
+    await importLocalNotes(userId)
+    await mutate()
+  }, [userId, mutate])
+  const keepDevice = useCallback(() => {
+    writeKept(keptKey)
+    setKeptFor(userId)
+  }, [keptKey, userId])
+  const discardDevice = useCallback(() => saveNotes([]), [])
 
   const add = useCallback(
     async (note: Note) => {
@@ -224,6 +252,10 @@ export function useNotesData(active: boolean): NotesData {
 
   return {
     notes,
+    devicePending,
+    importDevice,
+    keepDevice,
+    discardDevice,
     synced: !!userId,
     ready: !authLoading && (!userId || data !== undefined || !!error),
     loadFailed: !!userId && !!error && data === undefined,

@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
-import { Bot, Send, Loader2, Sparkles, TrendingUp, X, LogOut } from "lucide-react"
+import { Bot, Send, Loader2, Sparkles, TrendingUp, X, ShieldAlert } from "lucide-react"
 import { AuthForm } from "@/components/auth-form"
+import { ConsentGate } from "@/components/consent"
+import { panelContentProps, type PanelVariant } from "@/components/panel-frame"
+import { useConsents } from "@/lib/consent"
 import { getAccessToken, useAuth } from "@/components/auth-provider"
 import { useI18n } from "@/components/i18n-provider"
 import { HTML_LANG } from "@/lib/i18n/config"
@@ -52,16 +55,31 @@ interface AIAssistantPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** The header button, which gets focus back when the panel closes. */
-  returnFocusRef: RefObject<HTMLButtonElement | null>
+  returnFocusRef: RefObject<HTMLElement | null>
+  variant?: PanelVariant
 }
 
 /**
  * The assistant panel. HeaderTools renders the header button and loads this
  * module on demand, so none of it is in the page's initial JavaScript.
  */
-export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssistantPanelProps) {
+export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant = "sheet" }: AIAssistantPanelProps) {
   const { locale, t } = useI18n()
-  const { user, loading: authLoading, signOut } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const { consents, ready: consentsReady, record } = useConsents()
+  const [noticeBusy, setNoticeBusy] = useState(false)
+  // What the panel shows: sign-in, the consent steps, or the chat.
+  const stage = !user
+    ? "signin"
+    : !consentsReady
+      ? "loading"
+      : !consents.terms
+        ? "consent"
+        : consents.ageBracket === "under13"
+          ? "under13"
+          : !consents.aiNotice
+            ? "notice"
+            : "chat"
   // Tagged with the user it belongs to, so switching accounts never shows the previous user's allowance.
   const [quotaState, setQuotaState] = useState<{ userId: string; quota: Quota } | null>(null)
   const quota = user && quotaState?.userId === user.id ? quotaState.quota : null
@@ -77,6 +95,8 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
   const [error, setError] = useState<string | null>(null)
   // The account's notes (the assistant needs sign-in), used as context.
   const { notes } = useNotesData(open)
+  // Notes reach OpenAI only if the user switched that on (Portfolio → Account).
+  const notesShared = consents.notesToAi && notes.length > 0
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
@@ -126,7 +146,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
 
     let reply: Message
     try {
-      const notesContext = notes.length > 0
+      const notesContext = notesShared
         ? notes.map((note) =>
             `[${note.category.toUpperCase()}] ${note.title}:\n${note.content}`
           ).join("\n\n---\n\n")
@@ -199,15 +219,8 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:w-[90vw] md:w-[600px] sm:max-w-[600px] bg-[#0d1210] border-gray-800 p-0 flex flex-col [&>button]:hidden"
-        onCloseAutoFocus={(event) => {
-          event.preventDefault()
-          returnFocusRef.current?.focus()
-        }}
-      >
+    <Sheet open={open} onOpenChange={onOpenChange} modal={variant === "sheet"}>
+      <SheetContent side="right" {...panelContentProps(variant, returnFocusRef)}>
         {/* Header */}
         <SheetHeader className="px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))] border-b border-gray-800 bg-gradient-to-r from-[#0a0f0d] to-[#0d1914] shrink-0">
           <div className="flex items-center justify-between">
@@ -228,41 +241,27 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
                   {t.ai.clear}
                 </Button>
               )}
-              <SheetClose asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t.ai.close}
-                  className="size-11 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </SheetClose>
+              {variant === "sheet" && (
+                <SheetClose asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t.ai.close}
+                    className="size-11 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </SheetClose>
+              )}
             </div>
           </div>
           <SheetDescription className="text-sm text-emerald-400/80 mt-1 flex items-center gap-1.5">
             <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
-            {notes.length > 0 ? plural(locale, notes.length, t.ai.notesUsed) : t.ai.noNotes}
+            {notesShared ? plural(locale, notes.length, t.ai.notesUsed) : notes.length > 0 ? t.ai.notesOff : t.ai.noNotes}
           </SheetDescription>
-          {user && (
-            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-400">
-              <span className="truncate">{user.email}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null)
-                  signOut()
-                }}
-                className="flex min-h-11 shrink-0 items-center gap-1 transition-colors hover:text-gray-300 sm:min-h-0"
-              >
-                <LogOut className="h-3 w-3" />
-                {t.ai.signOut}
-              </button>
-            </div>
-          )}
         </SheetHeader>
 
-        {!user ? (
+        {stage === "signin" ? (
           <div className="flex-1 overflow-y-auto px-6 py-10 min-h-0">
             {authLoading ? (
               <div className="flex justify-center py-12">
@@ -271,6 +270,39 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
             ) : (
               <AuthForm title={t.ai.signInTitle} description={t.ai.signInText} />
             )}
+          </div>
+        ) : stage === "loading" ? (
+          <div role="status" className="flex flex-1 justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+          </div>
+        ) : stage === "consent" ? (
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <ConsentGate>{null}</ConsentGate>
+          </div>
+        ) : stage === "under13" ? (
+          <div className="flex-1 space-y-3 px-6 py-12 text-center">
+            <ShieldAlert aria-hidden="true" className="mx-auto h-8 w-8 text-amber-300" />
+            <p className="mx-auto max-w-sm text-sm leading-relaxed text-gray-300">{t.aiNotice.under13}</p>
+          </div>
+        ) : stage === "notice" ? (
+          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-10">
+            <div className="mx-auto max-w-sm space-y-4 text-center">
+              <h3 className="text-lg font-semibold text-white">{t.aiNotice.title}</h3>
+              <p className="text-sm leading-relaxed text-gray-300">{t.aiNotice.text}</p>
+              <Button
+                className="h-11 w-full"
+                disabled={noticeBusy}
+                onClick={async () => {
+                  setNoticeBusy(true)
+                  await record("ai_processing", true).catch(() => setError(t.consent.saveFailed))
+                  setNoticeBusy(false)
+                }}
+              >
+                {noticeBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t.aiNotice.ok}
+              </Button>
+              {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+            </div>
           </div>
         ) : !chat.ready ? (
           <div role="status" aria-label={t.ai.thinking} className="flex flex-1 justify-center py-12">
@@ -384,7 +416,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
         )}
 
         {/* Input */}
-        {user && (
+        {stage === "chat" && (
         <div className="px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-800 bg-[#0a0f0d] shrink-0">
           <div className="flex gap-2">
             <Textarea
@@ -412,7 +444,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef }: AIAssis
           </div>
           <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
             <Sparkles className="h-3 w-3" />
-            {notes.length > 0 ? plural(locale, notes.length, t.ai.contextNotes) : t.ai.contextNone}
+            {notesShared ? plural(locale, notes.length, t.ai.contextNotes) : t.ai.contextNone}
           </p>
           {quota && (
             <p className={`text-xs mt-1 ${quota.used >= quota.limit ? "text-amber-400" : "text-gray-400"}`}>

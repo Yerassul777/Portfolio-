@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { Loader2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { loadSupabase } from "@/lib/supabase-browser"
+import { ConsentFields, EMPTY_CONSENT, consentComplete, type ConsentValue } from "@/components/consent"
+import { POLICY_VERSION, savePendingConsent } from "@/lib/consent"
 import { useI18n } from "@/components/i18n-provider"
 import type { Dictionary } from "@/lib/i18n"
 import { format } from "@/lib/i18n/format"
@@ -46,6 +48,15 @@ export function AuthForm({ title, description }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [googleEnabled, setGoogleEnabled] = useState(false)
   const [cooldown, setCooldown] = useState(0)
+  // Agreeing to the policy comes before an account exists; the answer is
+  // recorded right after sign-in (see ConsentGate).
+  const [consent, setConsent] = useState<ConsentValue>(EMPTY_CONSENT)
+  const consentOk = consentComplete(consent)
+  const keepConsent = () => {
+    if (consentComplete(consent)) {
+      savePendingConsent({ ageBracket: consent.ageBracket, parentOk: consent.parentOk, version: POLICY_VERSION })
+    }
+  }
 
   useEffect(() => {
     isGoogleEnabled().then(setGoogleEnabled)
@@ -59,7 +70,8 @@ export function AuthForm({ title, description }: AuthFormProps) {
 
   const sendCode = async () => {
     const address = email.trim()
-    if (!address) return
+    if (!address || !consentOk) return
+    keepConsent()
     setBusy(true)
     setError(null)
     const { error } = await (await loadSupabase()).auth.signInWithOtp({
@@ -94,6 +106,8 @@ export function AuthForm({ title, description }: AuthFormProps) {
   }
 
   const signInWithGoogle = async () => {
+    if (!consentOk) return
+    keepConsent()
     setBusy(true)
     setError(null)
     const { error } = await (await loadSupabase()).auth.signInWithOAuth({
@@ -124,6 +138,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
           }}
           className="space-y-3"
         >
+          <ConsentFields value={consent} onChange={setConsent} />
           <input
             type="email"
             inputMode="email"
@@ -135,7 +150,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
             aria-label={t.auth.emailLabel}
             className={inputClass}
           />
-          <Button type="submit" disabled={busy || !email.trim()} className="h-11 w-full rounded-xl">
+          <Button type="submit" disabled={busy || !email.trim() || !consentOk} className="h-11 w-full rounded-xl">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
             {t.auth.getCode}
           </Button>
@@ -199,7 +214,7 @@ export function AuthForm({ title, description }: AuthFormProps) {
             type="button"
             variant="outline"
             onClick={signInWithGoogle}
-            disabled={busy}
+            disabled={busy || !consentOk}
             className="h-11 w-full rounded-xl border-2"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">

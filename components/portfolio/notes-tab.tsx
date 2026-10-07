@@ -1,16 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
-import { Briefcase, Cloud, GraduationCap, Loader2, Plus, Save, Sparkles, StickyNote, Target, Trash2, X, type LucideIcon } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Briefcase, Cloud, GraduationCap, Loader2, Plus, Save, Smartphone, Sparkles, StickyNote, Target, Trash2, X, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { AuthForm } from "@/components/auth-form"
 import { useAuth } from "@/components/auth-provider"
 import { useI18n } from "@/components/i18n-provider"
 import { HTML_LANG } from "@/lib/i18n/config"
-import { format } from "@/lib/i18n/format"
+import { format, plural } from "@/lib/i18n/format"
 import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX, useNotesData, type Note } from "@/lib/notes"
 import { cn } from "@/lib/utils"
 
@@ -28,21 +27,14 @@ const AUTOSAVE_MS = 700
 
 type Editing = { id: string; title: string; content: string }
 
-interface NotesPanelProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  /** The header button, which gets focus back when the panel closes. */
-  returnFocusRef: RefObject<HTMLButtonElement | null>
-}
-
 /**
- * The notes panel. HeaderTools renders the header button and loads this
- * module on demand, so none of it is in the page's initial JavaScript.
+ * Notes: the account’s when signed in, this device’s otherwise. A tab of the
+ * Portfolio panel; `active` is false while another tab is shown.
  */
-export function NotesPanel({ open, onOpenChange: setOpen, returnFocusRef }: NotesPanelProps) {
+export function NotesTab({ active }: { active: boolean }) {
   const { locale, t } = useI18n()
   const { user } = useAuth()
-  const data = useNotesData(open)
+  const data = useNotesData(active)
   const { notes, update } = data
   const [isCreating, setIsCreating] = useState(false)
   const [creatingBusy, setCreatingBusy] = useState(false)
@@ -80,6 +72,16 @@ export function NotesPanel({ open, onOpenChange: setOpen, returnFocusRef }: Note
     setEditing(null)
   }
 
+  // Leaving the tab (or closing the panel) saves an open edit; the editor
+  // stays open, so coming back continues where it was.
+  const editingRef = useRef(editing)
+  useEffect(() => {
+    editingRef.current = editing
+  }, [editing])
+  useEffect(() => {
+    if (!active && editingRef.current) saveEdit(editingRef.current)
+  }, [active, saveEdit])
+
   const addNote = async () => {
     if (!draft.title.trim() && !draft.content.trim()) return
     const now = new Date().toISOString()
@@ -109,41 +111,49 @@ export function NotesPanel({ open, onOpenChange: setOpen, returnFocusRef }: Note
     data.remove(id).then(() => setSaveFailed(false), () => setSaveFailed(true))
   }
 
-  const onOpenChange = (next: boolean) => {
-    if (!next) finishEditing()
-    setOpen(next)
-  }
-
-  const loadingAccount = open && !data.ready
+  const loadingAccount = active && !data.ready
+  const [importBusy, setImportBusy] = useState(false)
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col overflow-hidden border-gray-800 bg-[#0d1210] p-0 sm:w-[90vw] sm:max-w-[600px] md:w-[600px] [&>button]:hidden"
-        onCloseAutoFocus={(event) => {
-          event.preventDefault()
-          returnFocusRef.current?.focus()
-        }}
-      >
-        <SheetHeader className="border-b border-gray-800 bg-[#0a0f0d] px-6 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center gap-2 text-white">
-              <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-green-600">
-                <StickyNote className="h-4 w-4 text-white" />
-              </span>
-              {t.notes.title}
-            </SheetTitle>
-            <SheetClose asChild>
-              <Button variant="ghost" size="icon" aria-label={t.notes.close} className="size-11 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
-                <X className="h-5 w-5" />
-              </Button>
-            </SheetClose>
-          </div>
-          <SheetDescription className="mt-1 text-sm text-gray-400">{t.notes.subtitle}</SheetDescription>
-        </SheetHeader>
-
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
+    <div className="flex min-h-full flex-col">
+        <div ref={scrollRef} className="flex-1 space-y-4 p-4">
+          {data.devicePending > 0 && user && (
+            <div role="region" aria-labelledby="device-notes-title" className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+              <h3 id="device-notes-title" className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+                <Smartphone aria-hidden="true" className="h-4 w-4" />
+                {t.localImport.title}
+              </h3>
+              <p className="text-sm text-gray-300">
+                {plural(locale, data.devicePending, t.localImport.text)} {format(t.localImport.question, { email: user.email ?? "" })}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={importBusy}
+                  onClick={async () => {
+                    setImportBusy(true)
+                    try {
+                      await data.importDevice()
+                      setSaveFailed(false)
+                    } catch {
+                      setSaveFailed(true)
+                    } finally {
+                      setImportBusy(false)
+                    }
+                  }}
+                  className="h-11"
+                >
+                  {importBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t.localImport.move}
+                </Button>
+                <Button variant="outline" className="h-11" onClick={data.keepDevice}>
+                  {t.localImport.keep}
+                </Button>
+                <Button variant="ghost" className="h-11 text-red-300 hover:text-red-200" onClick={data.discardDevice}>
+                  {t.localImport.discard}
+                </Button>
+              </div>
+            </div>
+          )}
           {!user && showSignIn && (
             <div className="space-y-3 rounded-xl border border-emerald-500/20 bg-[#141a17] p-4">
               <AuthForm title={t.notes.syncTitle} description={t.notes.syncText} />
@@ -339,7 +349,7 @@ export function NotesPanel({ open, onOpenChange: setOpen, returnFocusRef }: Note
           )}
         </div>
 
-        <div className="border-t border-gray-800 bg-[#0a0f0d] px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="border-t border-gray-800 px-6 py-3">
           {data.synced ? (
             <p className="flex items-center gap-2 text-xs text-gray-400">
               <Cloud aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
@@ -363,7 +373,6 @@ export function NotesPanel({ open, onOpenChange: setOpen, returnFocusRef }: Note
             </p>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+    </div>
   )
 }

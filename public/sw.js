@@ -8,6 +8,10 @@
 // - Everything else is left alone: Supabase and other origins, /api, and the
 //   payloads Next.js fetches for in-app navigation always go to the network.
 //
+// - Push: deadline reminders (sent by /api/cron/reminders) are shown as
+//   notifications; a tap opens the opportunity. The payload carries only
+//   public catalogue data.
+//
 // Bump VERSION to drop every cache on the next visit.
 const VERSION = "v1"
 const STATIC_CACHE = `static-${VERSION}`
@@ -65,6 +69,65 @@ self.addEventListener("fetch", (event) => {
   ) {
     event.respondWith(cacheFirst(request))
   }
+})
+
+// Signing out (components/auth-provider.tsx) drops the offline copies of
+// pages, so the next person on a shared device does not find them.
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "purge-pages" || event.origin !== self.location.origin) return
+  event.waitUntil(
+    caches.open(PAGE_CACHE).then(async (cache) => {
+      for (const request of await cache.keys()) {
+        const path = new URL(request.url).pathname
+        if (path !== OFFLINE_URL && path !== FAVICON_URL) await cache.delete(request)
+      }
+    })
+  )
+})
+
+/** Only paths on this site: a push payload must never open another origin. */
+function sitePath(value) {
+  return typeof value === "string" && /^\/(?!\/)/.test(value) ? value : "/ru"
+}
+
+self.addEventListener("push", (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {}
+  const title = typeof data.title === "string" ? data.title.slice(0, 120) : "Portfolio+"
+  const tasks = [
+    self.registration.showNotification(title, {
+      body: typeof data.body === "string" ? data.body.slice(0, 240) : "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/badge-96.png",
+      tag: typeof data.tag === "string" ? data.tag : undefined,
+      lang: "ru",
+      data: { url: sitePath(data.url) },
+    }),
+  ]
+  // The number on the app icon (iOS 16.4+ home-screen apps, desktop PWAs).
+  if (typeof data.badge === "number" && self.navigator.setAppBadge) {
+    tasks.push(self.navigator.setAppBadge(data.badge).catch(() => {}))
+  }
+  event.waitUntil(Promise.all(tasks))
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+  const url = new URL(sitePath(event.notification.data?.url), self.location.origin).href
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+      for (const client of windows) {
+        if (new URL(client.url).origin !== self.location.origin) continue
+        await client.focus()
+        if ("navigate" in client) await client.navigate(url)
+        return
+      }
+      await self.clients.openWindow(url)
+    })()
+  )
 })
 
 async function networkFirstPage(event) {

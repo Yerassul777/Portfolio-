@@ -1,9 +1,11 @@
 import type { ReactNode } from "react"
 import type { Metadata, Viewport } from "next"
-import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/components/auth-provider"
 import { I18nProvider } from "@/components/i18n-provider"
 import { PwaSetup } from "@/components/install-app"
+import { SiteAnalytics } from "@/components/site-analytics"
+import { APP_MODE_SCRIPT } from "@/lib/app-mode"
+import { LAUNCH_SCREENS } from "@/lib/launch-screens"
 import { getDictionary } from "@/lib/i18n"
 import { DEFAULT_LOCALE, ENABLED_LOCALES, HTML_LANG, OG_LOCALE, isEnabledLocale, type Locale } from "@/lib/i18n/config"
 import { SITE_URL } from "@/lib/site"
@@ -43,7 +45,12 @@ export async function generateMetadata({ params }: Pick<LocaleLayoutProps, "para
     formatDetection: { telephone: false },
     // iOS has no install prompt and ignores most of the manifest: these make
     // "Add to Home Screen" open the site full-screen, like an app.
-    appleWebApp: { capable: true, title: t.meta.siteName, statusBarStyle: "black-translucent" },
+    appleWebApp: {
+      capable: true,
+      title: t.meta.siteName,
+      statusBarStyle: "black-translucent",
+      startupImage: LAUNCH_SCREENS,
+    },
   }
 }
 
@@ -58,13 +65,18 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   const locale = await resolveLocale(params)
 
   return (
-    <html lang={HTML_LANG[locale]} className={`dark ${fontClassName}`}>
+    // suppressHydrationWarning: the script below adds data-app to <html> before React hydrates.
+    <html lang={HTML_LANG[locale]} className={`dark ${fontClassName}`} suppressHydrationWarning>
+      <head>
+        {/* Installed app or website, decided before the first paint (lib/app-mode.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: APP_MODE_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased">
         <I18nProvider locale={locale} dictionary={getDictionary(locale)}>
           <AuthProvider>{children}</AuthProvider>
         </I18nProvider>
         {/* The analytics script exists only on Vercel; elsewhere (Docker, CI, local) it is a 404 in the console. */}
-        {process.env.VERCEL && <Analytics />}
+        {process.env.VERCEL && <SiteAnalytics />}
         <PwaSetup />
       </body>
     </html>

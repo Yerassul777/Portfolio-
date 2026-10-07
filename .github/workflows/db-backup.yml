@@ -1,0 +1,68 @@
+name: Database backup
+
+# Nightly encrypted dump of the Supabase database (the free plan has no
+# backups). The repository is public, so the dump is encrypted with `age`
+# before it is stored as an artifact: only the holders of the private key
+# (kept offline by the team, never in GitHub) can read it.
+#
+# Setup (once), see docs/backups.md:
+#   - secret   SUPABASE_DB_URL       session-pooler connection string
+#   - variable BACKUP_AGE_RECIPIENT  the age public key (age1...)
+# Until both exist the job does nothing.
+
+on:
+  schedule:
+    - cron: "17 21 * * *" # 03:17 in Almaty
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+    steps:
+      - name: Check configuration
+        id: config
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$RECIPIENT" ]; then
+            echo "::notice::Backups are not configured yet (SUPABASE_DB_URL secret and BACKUP_AGE_RECIPIENT variable)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: supabase/setup-cli@v1
+        if: steps.config.outputs.ready == 'true'
+        with:
+          version: latest
+
+      - name: Dump
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          supabase db dump --db-url "$DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$DB_URL" -f schema.sql
+          supabase db dump --db-url "$DB_URL" -f data.sql --use-copy --data-only
+          # A dump without the catalogue is not a backup.
+          grep -q "COPY public.opportunities" data.sql
+
+      - name: Encrypt
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y age >/dev/null
+          tar czf - roles.sql schema.sql data.sql | age -r "$RECIPIENT" > "backup-$(date -u +%F).tar.gz.age"
+          shred -u roles.sql schema.sql data.sql
+
+      - uses: actions/upload-artifact@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: "*.age"
+          retention-days: 30
+          if-no-files-found: error

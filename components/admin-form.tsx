@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, LogOut, ShieldAlert } from "lucide-react"
+import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, LogOut, ShieldAlert, RotateCcw } from "lucide-react"
 import { CATEGORIES, FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opportunity } from "@/lib/types"
 import useSWR, { mutate } from "swr"
 import { AuthForm } from "@/components/auth-form"
@@ -174,22 +174,24 @@ export function AdminForm({ locale }: { locale: Locale }) {
     setDeleteLoading(sessionToDelete.id)
     
     try {
-      // RLS turns a disallowed delete into "0 rows" rather than an error, so the
-      // count is what tells success from a silent refusal.
+      // Nothing is hard-deleted through the API (migration 20261007090100): a
+      // removed item is archived — gone from the site, kept in the database and
+      // the audit log, and can be brought back. RLS turns a disallowed update
+      // into "0 rows" rather than an error, so the count tells them apart.
       const { error, count } = await (await loadSupabase())
         .from("opportunities")
-        .delete({ count: "exact" })
+        .update({ status: "archived" }, { count: "exact" })
         .eq("id", sessionToDelete.id)
 
       if (error || count === 0) {
         setMessage({
           type: "error",
-          text: count === 0 ? "Запись не удалена: нет прав или она уже удалена." : "Не удалось удалить сеанс. Попробуйте ещё раз.",
+          text: count === 0 ? "Запись не убрана: нет прав или её уже нет." : "Не удалось убрать запись. Попробуйте ещё раз.",
         })
         return
       }
 
-      setMessage({ type: "success", text: "Сеанс успешно удалён!" })
+      setMessage({ type: "success", text: "Запись убрана с сайта. Её можно вернуть из списка." })
 
       // Refresh sessions list
       mutate("admin-sessions")
@@ -198,6 +200,24 @@ export function AdminForm({ locale }: { locale: Locale }) {
     } finally {
       setDeleteLoading(null)
       setSessionToDelete(null)
+    }
+  }
+
+  const restoreSession = async (id: string) => {
+    setDeleteLoading(id)
+    try {
+      const { error, count } = await (await loadSupabase())
+        .from("opportunities")
+        .update({ status: "published" }, { count: "exact" })
+        .eq("id", id)
+      setMessage(
+        error || count === 0
+          ? { type: "error", text: "Не удалось вернуть запись." }
+          : { type: "success", text: "Запись снова на сайте." }
+      )
+      mutate("admin-sessions")
+    } finally {
+      setDeleteLoading(null)
     }
   }
 
@@ -508,10 +528,23 @@ export function AdminForm({ locale }: { locale: Locale }) {
                                   {item.description}
                                 </p>
                               </div>
+                              {item.status === "archived" ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Вернуть на сайт «${item.title}»`}
+                                  title="Вернуть на сайт"
+                                  className="shrink-0 ml-2 size-11 text-primary hover:bg-primary/10"
+                                  onClick={() => restoreSession(item.id)}
+                                  disabled={deleteLoading === item.id}
+                                >
+                                  {deleteLoading === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                                </Button>
+                              ) : (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                aria-label={`Удалить «${item.title}»`}
+                                aria-label={`Убрать с сайта «${item.title}»`}
                                 className="shrink-0 ml-2 size-11 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => setSessionToDelete({ id: item.id, category, title: item.title })}
                                 disabled={deleteLoading === item.id}
@@ -522,6 +555,7 @@ export function AdminForm({ locale }: { locale: Locale }) {
                                   <Trash2 className="h-4 w-4" />
                                 )}
                               </Button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -541,11 +575,11 @@ export function AdminForm({ locale }: { locale: Locale }) {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Удалить сеанс?
+              Убрать с сайта?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить &ldquo;{sessionToDelete?.title}&rdquo;? 
-              Это действие нельзя отменить, сеанс будет полностью удалён из базы данных.
+              &ldquo;{sessionToDelete?.title}&rdquo; исчезнет с сайта. Запись останется в архиве — её можно вернуть
+              кнопкой в этом списке.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -554,7 +588,7 @@ export function AdminForm({ locale }: { locale: Locale }) {
               onClick={handleDeleteSession}
               className="bg-destructive hover:bg-destructive/90 text-white text-white"
             >
-              Удалить
+              Убрать
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

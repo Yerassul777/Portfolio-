@@ -13,6 +13,13 @@ import { SITE_URL, categoryPath, opportunityPath } from "@/lib/site"
 
 type Props = { params: Promise<{ locale: string; slug: string }> }
 
+// Not prebuilt at deploy (the list changes); each page is rendered on its
+// first visit, then cached at the edge and refreshed at most once a minute.
+export function generateStaticParams() {
+  return []
+}
+export const revalidate = 60
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params
   if (!isEnabledLocale(locale)) return {}

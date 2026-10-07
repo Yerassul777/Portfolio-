@@ -1,6 +1,7 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
+import { isIOS, isStandalone } from "@/lib/app-mode"
 
 // Installing the site as an app (PWA): the service worker, and the browser's
 // install prompt, which fires once and early, so it is captured at start-up
@@ -46,19 +47,6 @@ export function startPwa() {
     if (document.readyState === "complete") register()
     else window.addEventListener("load", register, { once: true })
   }
-}
-
-function isStandalone(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  )
-}
-
-function isIOS(): boolean {
-  const ua = navigator.userAgent
-  // iPadOS reports itself as a Mac; touch support gives it away.
-  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
 }
 
 /**

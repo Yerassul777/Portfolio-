@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 let clientPromise: Promise<SupabaseClient> | null = null
+const loadedListeners = new Set<(client: SupabaseClient) => void>()
 
 /**
  * One client per tab, loaded on first use. supabase-js is ~60 KB gzipped and
@@ -12,8 +13,8 @@ let clientPromise: Promise<SupabaseClient> | null = null
  */
 export function loadSupabase(): Promise<SupabaseClient> {
   clientPromise ??= import("@supabase/supabase-js")
-    .then(({ createClient }) =>
-      createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
+    .then(({ createClient }) => {
+      const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
@@ -21,11 +22,31 @@ export function loadSupabase(): Promise<SupabaseClient> {
           flowType: "pkce",
         },
       })
-    )
+      for (const listener of loadedListeners) listener(client)
+      loadedListeners.clear()
+      return client
+    })
     .catch((error) => {
       // A failed chunk download (flaky network) must not poison every later call.
       clientPromise = null
       throw error
     })
   return clientPromise
+}
+
+/** Runs `listener` once the client exists, whoever loads it. Returns an unsubscribe. */
+export function whenSupabaseLoaded(listener: (client: SupabaseClient) => void): () => void {
+  loadedListeners.add(listener)
+  return () => loadedListeners.delete(listener)
+}
+
+/** Whether a sign-in may be stored on this device (supabase-js keeps it under sb-<ref>-auth-token). */
+export function hasStoredSession(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && /^sb-.+-auth-token$/.test(key)) return true
+    }
+  } catch {}
+  return false
 }

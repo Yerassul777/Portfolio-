@@ -9,7 +9,7 @@ import { clearChatHistory, readChatHistory, useChatHistory, type ChatMessage } f
 export type { ChatMessage }
 
 // Match the checks in the ai_messages table (migration 20260929090000).
-const MESSAGE_MAX = 8000
+const MESSAGE_MAX = 4000
 /** How much of the conversation the panel shows; the database keeps 200. */
 const SHOWN_MESSAGES = 100
 

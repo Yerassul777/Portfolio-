@@ -66,10 +66,15 @@ export async function getHighlights(): Promise<Highlights | null> {
   }
 }
 
-/** null when the catalogue is unreachable; the page then renders and the browser retries. */
+/**
+ * null when the catalogue is unreachable; the page then renders and the
+ * browser retries. Only shared views (no search, first pages) go through the
+ * cache: arbitrary ?q= values would otherwise fill it with one-off entries.
+ */
 export async function getCataloguePage(query: CatalogueQuery): Promise<CataloguePage | null> {
   try {
-    return await cachedPage(query)
+    const shared = query.q.trim() === "" && query.page <= 3
+    return await (shared ? cachedPage(query) : fetchCataloguePage(client(), query))
   } catch (error) {
     console.error("Loading catalogue failed:", error)
     return null

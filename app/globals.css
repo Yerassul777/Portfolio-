@@ -2,6 +2,8 @@
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
+/* The installed app (<html data-app="1">, see lib/app-mode.ts). */
+@custom-variant app (&:where([data-app] *));
 
 :root {
   --background: oklch(1 0 0);
@@ -131,6 +133,37 @@
   .card-enter {
     animation: none;
   }
+}
+
+/* The heart's little pop when something is saved. */
+@keyframes heart-pop {
+  40% {
+    transform: scale(1.3);
+  }
+}
+
+/* --- The installed app --------------------------------------------------- */
+:root {
+  --app-tabbar-height: 0px;
+}
+[data-app] {
+  --app-tabbar-height: calc(4rem + env(safe-area-inset-bottom));
+  /* No rubber band past the ends: the app scrolls like an app, and the
+     custom pull-to-refresh owns the gesture at the top. */
+  overscroll-behavior-y: none;
+}
+[data-app] body {
+  padding-bottom: var(--app-tabbar-height);
+  -webkit-tap-highlight-color: transparent;
+}
+/* Interface chrome is not text to select or images to save. */
+[data-app] :where(nav, header, button, [role="tab"]) {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+[data-app] img {
+  -webkit-touch-callout: none;
 }
 
 @layer base {
