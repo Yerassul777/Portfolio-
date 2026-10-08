@@ -239,9 +239,14 @@ function Settings() {
     setBusy("delete")
     setError(null)
     try {
-      // The push subscription first, while the session still exists.
+      // The push subscription and the certificate photos first, while the
+      // session still exists (files in Storage do not cascade with the account).
       const { unsubscribeThisDevice } = await import("@/lib/push")
       await unsubscribeThisDevice().catch(() => {})
+      if (user) {
+        const { removeAllPhotos } = await import("@/lib/certificates")
+        await removeAllPhotos(user.id)
+      }
       const supabase = await loadSupabase()
       const { error: rpcError } = await supabase.rpc("delete_my_account")
       if (rpcError) throw rpcError

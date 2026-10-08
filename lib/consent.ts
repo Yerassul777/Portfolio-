@@ -8,7 +8,7 @@ import { ageOn, todayInKazakhstan } from "@/lib/profile"
 import { AI_MIN_AGE, POLICY_VERSION, bracketForAge, type AgeBracket } from "@/lib/policy"
 
 export { POLICY_VERSION, type AgeBracket }
-export type ConsentKind = "terms" | "ai_processing" | "notes_to_ai" | "push"
+export type ConsentKind = "terms" | "ai_processing" | "notes_to_ai" | "push" | "certificate_scan"
 
 type ConsentRow = { kind: string; version: string; age_bracket: AgeBracket | null; granted: boolean }
 
@@ -17,9 +17,11 @@ export interface Consents {
   terms: boolean
   ageBracket: AgeBracket | null
   notesToAi: boolean
+  /** Agreed that certificate photos go to OpenAI to be read. */
+  certificateScan: boolean
 }
 
-const NONE: Consents = { terms: false, ageBracket: null, notesToAi: false }
+const NONE: Consents = { terms: false, ageBracket: null, notesToAi: false, certificateScan: false }
 
 async function fetchConsents(): Promise<Consents> {
   const { data, error } = await (await loadSupabase()).rpc("my_consents")
@@ -30,6 +32,7 @@ async function fetchConsents(): Promise<Consents> {
     terms: !!terms?.granted && terms.version === POLICY_VERSION,
     ageBracket: terms?.granted ? terms.age_bracket : null,
     notesToAi: !!latest.get("notes_to_ai")?.granted,
+    certificateScan: !!latest.get("certificate_scan")?.granted,
   }
 }
 

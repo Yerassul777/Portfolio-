@@ -25,10 +25,12 @@ export interface PortfolioEntry {
   /** "YYYY-MM-DD" */
   eventDate: string | null
   description: string
+  /** The certificate photo in Storage ("<user id>/<id>.jpg"), see lib/certificates.ts. */
+  certificatePath: string | null
   createdAt: string
 }
 
-export type EntryDraft = Pick<PortfolioEntry, "kind" | "title" | "organizer" | "result" | "eventDate" | "description" | "status">
+export type EntryDraft = Pick<PortfolioEntry, "kind" | "title" | "organizer" | "result" | "eventDate" | "description" | "status" | "certificatePath">
 
 type EntryRow = {
   id: string
@@ -40,10 +42,11 @@ type EntryRow = {
   result: string
   event_date: string | null
   description: string
+  certificate_path: string | null
   created_at: string
 }
 
-const COLUMNS = "id, opportunity_id, status, kind, title, organizer, result, event_date, description, created_at"
+const COLUMNS = "id, opportunity_id, status, kind, title, organizer, result, event_date, description, certificate_path, created_at"
 
 function fromRow(row: EntryRow): PortfolioEntry {
   return {
@@ -56,6 +59,7 @@ function fromRow(row: EntryRow): PortfolioEntry {
     result: row.result,
     eventDate: row.event_date,
     description: row.description,
+    certificatePath: row.certificate_path,
     createdAt: row.created_at,
   }
 }
@@ -69,6 +73,7 @@ function toRow(draft: Partial<EntryDraft>) {
   if (draft.result !== undefined) row.result = draft.result.trim().slice(0, ENTRY_TEXT_MAX)
   if (draft.eventDate !== undefined) row.event_date = draft.eventDate || null
   if (draft.description !== undefined) row.description = draft.description.slice(0, ENTRY_DESCRIPTION_MAX)
+  if (draft.certificatePath !== undefined) row.certificate_path = draft.certificatePath
   return row
 }
 

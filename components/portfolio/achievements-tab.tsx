@@ -5,9 +5,10 @@ import { Download, Loader2, Pencil, Plus, Save, Trash2, Trophy, X } from "lucide
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { getAccessToken } from "@/components/auth-provider"
+import { getAccessToken, useAuth } from "@/components/auth-provider"
 import { useI18n } from "@/components/i18n-provider"
 import { isIOS } from "@/lib/app-mode"
+import { removePhotos, uploadPhoto, usePhotoUrls, type ScannedFields } from "@/lib/certificates"
 import { isDeadlinePassed, formatDeadline } from "@/lib/deadline"
 import { HTML_LANG } from "@/lib/i18n/config"
 import { format } from "@/lib/i18n/format"
@@ -21,10 +22,27 @@ import {
   type PortfolioEntry,
 } from "@/lib/portfolio"
 import { cn } from "@/lib/utils"
+import { CertificateField, CertificateThumb, type PhotoState } from "./certificate-photo"
 import { AccountOnly, EmptyState, LoadError, Spinner } from "./common"
 
 const KINDS: EntryKind[] = ["olympiads", "competitions", "volunteering", "universities", "other"]
-const EMPTY: EntryDraft = { kind: "olympiads", title: "", organizer: "", result: "", eventDate: null, description: "", status: "completed" }
+const EMPTY: EntryDraft = { kind: "olympiads", title: "", organizer: "", result: "", eventDate: null, description: "", status: "completed", certificatePath: null }
+
+type Editing = { id: string | null; draft: EntryDraft; photo: PhotoState }
+
+const photoOf = (draft: EntryDraft): PhotoState => (draft.certificatePath ? { kind: "saved", path: draft.certificatePath } : { kind: "none" })
+
+/** Scanned fields fill what is still empty; what the user typed stays. */
+function fillFrom(draft: EntryDraft, fields: ScannedFields): EntryDraft {
+  return {
+    ...draft,
+    title: draft.title.trim() ? draft.title : fields.title,
+    organizer: draft.organizer.trim() ? draft.organizer : fields.organizer,
+    result: draft.result.trim() ? draft.result : fields.result,
+    eventDate: draft.eventDate ?? fields.eventDate,
+    kind: draft.title.trim() ? draft.kind : fields.kind,
+  }
+}
 
 export function AchievementsTab() {
   const { t } = useI18n()
@@ -37,9 +55,11 @@ export function AchievementsTab() {
 
 function Achievements() {
   const { t } = useI18n()
+  const { user } = useAuth()
   const portfolio = usePortfolio(true)
-  const [editing, setEditing] = useState<{ id: string | null; draft: EntryDraft } | null>(null)
+  const [editing, setEditing] = useState<Editing | null>(null)
   const [failed, setFailed] = useState(false)
+  const photoUrls = usePhotoUrls(portfolio.entries.flatMap((e) => (e.certificatePath ? [e.certificatePath] : [])))
 
   if (!portfolio.ready) return <Spinner />
   if (portfolio.loadFailed) return <LoadError text={t.portfolio.loadError} onRetry={portfolio.retry} />
@@ -58,11 +78,34 @@ function Achievements() {
     }
   }
 
+  // A new photo is uploaded first, then the entry saved; a replaced or removed
+  // photo is deleted only once the entry no longer points at it.
   const save = async () => {
-    if (!editing || !editing.draft.title.trim()) return
-    const ok = await run(() => (editing.id ? portfolio.update(editing.id, editing.draft) : portfolio.add(editing.draft)))
+    if (!editing || !editing.draft.title.trim() || !user) return
+    const { id, draft, photo } = editing
+    const before = id ? (portfolio.entries.find((e) => e.id === id)?.certificatePath ?? null) : null
+    let uploaded: string | null = null
+    const ok = await run(async () => {
+      if (photo.kind === "new") uploaded = await uploadPhoto(user.id, photo.blob)
+      const certificatePath = photo.kind === "new" ? uploaded : photo.kind === "saved" ? photo.path : null
+      try {
+        await (id ? portfolio.update(id, { ...draft, certificatePath }) : portfolio.add({ ...draft, certificatePath }))
+      } catch (error) {
+        if (uploaded) await removePhotos([uploaded]).catch(() => {})
+        throw error
+      }
+      if (before && before !== certificatePath) await removePhotos([before]).catch(() => {})
+    })
     if (ok) setEditing(null)
   }
+
+  const removeEntry = (entry: PortfolioEntry) =>
+    run(async () => {
+      await portfolio.remove(entry.id)
+      if (entry.certificatePath) await removePhotos([entry.certificatePath]).catch(() => {})
+    })
+
+  const startEditing = (entry: PortfolioEntry) => setEditing({ id: entry.id, draft: toDraft(entry), photo: photoOf(toDraft(entry)) })
 
   const form = editing && (
     <EntryForm
@@ -70,6 +113,14 @@ function Achievements() {
       onChange={(draft) => setEditing({ ...editing, draft })}
       onSave={save}
       onCancel={() => setEditing(null)}
+      certificate={
+        <CertificateField
+          photo={editing.photo}
+          savedUrl={editing.photo.kind === "saved" ? photoUrls[editing.photo.path] : undefined}
+          onPhoto={(photo) => setEditing((current) => current && { ...current, photo })}
+          onScanned={(fields) => setEditing((current) => current && { ...current, draft: fillFrom(current.draft, fields) })}
+        />
+      }
     />
   )
 
@@ -85,7 +136,7 @@ function Achievements() {
         form
       ) : (
         <Button
-          onClick={() => setEditing({ id: null, draft: EMPTY })}
+          onClick={() => setEditing({ id: null, draft: EMPTY, photo: { kind: "none" } })}
           variant="outline"
           className="h-14 w-full border-dashed border-gray-700 bg-transparent text-gray-400 hover:border-emerald-500/50 hover:bg-gray-800/50 hover:text-white"
         >
@@ -107,8 +158,9 @@ function Achievements() {
                 <EntryCard
                   key={entry.id}
                   entry={entry}
-                  onEdit={() => setEditing({ id: entry.id, draft: toDraft(entry) })}
-                  onDelete={() => run(() => portfolio.remove(entry.id))}
+                  onEdit={() => startEditing(entry)}
+                  onDelete={() => void removeEntry(entry)}
+                  photoUrl={entry.certificatePath ? photoUrls[entry.certificatePath] : undefined}
                 >
                   {entry.eventDate && isDeadlinePassed(entry.eventDate) ? (
                     <div className="space-y-2 border-t border-gray-800 pt-3">
@@ -155,8 +207,9 @@ function Achievements() {
                 <EntryCard
                   key={entry.id}
                   entry={entry}
-                  onEdit={() => setEditing({ id: entry.id, draft: toDraft(entry) })}
-                  onDelete={() => run(() => portfolio.remove(entry.id))}
+                  onEdit={() => startEditing(entry)}
+                  onDelete={() => void removeEntry(entry)}
+                  photoUrl={entry.certificatePath ? photoUrls[entry.certificatePath] : undefined}
                 />
               )
             )}
@@ -168,26 +221,29 @@ function Achievements() {
 }
 
 function toDraft(entry: PortfolioEntry): EntryDraft {
-  const { kind, title, organizer, result, eventDate, description, status } = entry
-  return { kind, title, organizer, result, eventDate, description, status }
+  const { kind, title, organizer, result, eventDate, description, status, certificatePath } = entry
+  return { kind, title, organizer, result, eventDate, description, status, certificatePath }
 }
 
 function EntryCard({
   entry,
   onEdit,
   onDelete,
+  photoUrl,
   children,
 }: {
   entry: PortfolioEntry
   onEdit: () => void
   onDelete: () => void
+  photoUrl?: string
   children?: ReactNode
 }) {
   const { locale, t } = useI18n()
   return (
     <li className="space-y-3 rounded-xl border border-gray-800 bg-[#141a17] p-4">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 space-y-1">
+        {entry.certificatePath && <CertificateThumb url={photoUrl} title={entry.title} />}
+        <div className="min-w-0 flex-1 space-y-1">
           <p className="text-xs text-emerald-300/80">
             {t.portfolio.kinds[entry.kind]}
             {entry.eventDate && <> · {formatDeadline(entry.eventDate, "short", HTML_LANG[locale])}</>}
@@ -227,11 +283,14 @@ function EntryForm({
   onChange,
   onSave,
   onCancel,
+  certificate,
 }: {
   draft: EntryDraft
   onChange: (draft: EntryDraft) => void
   onSave: () => void
   onCancel: () => void
+  /** The photo / scanner block, first in the form: scanning fills the fields below. */
+  certificate: ReactNode
 }) {
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
@@ -252,6 +311,7 @@ function EntryForm({
           <X className="h-4 w-4" />
         </Button>
       </div>
+      {certificate}
       <label className="block space-y-1 text-xs text-gray-400">
         {t.portfolio.titleLabel}
         <Input required value={draft.title} maxLength={ENTRY_TITLE_MAX} onChange={(e) => onChange({ ...draft, title: e.target.value })} className={cn("h-11", field)} />
