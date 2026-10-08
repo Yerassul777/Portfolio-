@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useLayoutEffect, useRef, type MouseEvent, type ReactNode, type RefObject } from "react"
 import { useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
-import { ArrowDown, ArrowUp, Bot, Send, Loader2, Sparkles, TrendingUp, X, ShieldAlert } from "lucide-react"
+import { ArrowDown, ArrowUp, Bot, Flag, MessageSquare, Send, Loader2, Sparkles, TrendingUp, X, ShieldAlert } from "lucide-react"
 import { AuthForm } from "@/components/auth-form"
 import { ConsentGate } from "@/components/consent"
 import { panelContentProps, type PanelVariant } from "@/components/panel-frame"
@@ -22,6 +23,17 @@ import { ageOn, shownName, todayInKazakhstan, useProfile } from "@/lib/profile"
 import { AI_MIN_AGE } from "@/lib/policy"
 import type { Locale } from "@/lib/i18n/config"
 import type { Dictionary } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
+
+// The trajectory view is a separate chunk: most visits only chat.
+const Trajectory = dynamic(() => import("@/components/trajectory").then((m) => m.Trajectory), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-1 justify-center py-12">
+      <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+    </div>
+  ),
+})
 
 type Quota = { used: number; limit: number }
 
@@ -135,8 +147,10 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
   const setQuota = (next: Quota) => {
     if (user) setQuotaState({ userId: user.id, quota: next })
   }
+  // Chat or "Моя траектория"; both need what the chat needs.
+  const [view, setView] = useState<"chat" | "plan">("chat")
   // Loaded only for those who may chat (not before registration, not under 13).
-  const chat = useChat(open && stage === "chat")
+  const chat = useChat(open && stage === "chat" && view === "chat")
   // Sent, not yet answered: shown under the history until the reply arrives.
   const [pending, setPending] = useState<Message | null>(null)
   const messages = pending ? [...chat.messages, pending] : chat.messages
@@ -357,6 +371,29 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
             <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
             {notesShared ? plural(locale, notes.length, t.ai.notesUsed) : notes.length > 0 ? t.ai.notesOff : t.ai.noNotes}
           </SheetDescription>
+          {stage === "chat" && (
+            <div role="tablist" aria-label={t.ai.title} className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-[#141a17] p-1">
+              {([
+                ["chat", MessageSquare, t.trajectory.chatTab],
+                ["plan", Flag, t.trajectory.planTab],
+              ] as const).map(([id, Icon, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === id}
+                  onClick={() => setView(id)}
+                  className={cn(
+                    "flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+                    view === id ? "bg-emerald-500/15 text-emerald-300" : "text-gray-400 hover:text-gray-200"
+                  )}
+                >
+                  <Icon aria-hidden="true" className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </SheetHeader>
 
         {stage === "signin" ? (
@@ -382,6 +419,8 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
             <ShieldAlert aria-hidden="true" className="mx-auto h-8 w-8 text-amber-300" />
             <p className="mx-auto max-w-sm text-sm leading-relaxed text-gray-300">{t.aiAge.under13}</p>
           </div>
+        ) : view === "plan" ? (
+          <Trajectory active={open} onLeave={onLeave} />
         ) : !chat.ready ? (
           <div role="status" aria-label={t.ai.thinking} className="flex flex-1 justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
@@ -525,7 +564,7 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
         )}
 
         {/* Input */}
-        {stage === "chat" && (
+        {stage === "chat" && view === "chat" && (
         <div className="px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-800 bg-[#0a0f0d] shrink-0">
           <div className="flex gap-2">
             <Textarea
