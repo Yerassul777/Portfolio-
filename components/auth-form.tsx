@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Loader2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { loadSupabase } from "@/lib/supabase-browser"
-import { ConsentFields, EMPTY_CONSENT, consentComplete, type ConsentValue } from "@/components/consent"
+import { ConsentFields, EMPTY_CONSENT, consentState, type ConsentValue } from "@/components/consent"
 import { POLICY_VERSION, savePendingConsent } from "@/lib/consent"
 import { useI18n } from "@/components/i18n-provider"
 import type { Dictionary } from "@/lib/i18n"
@@ -51,10 +51,11 @@ export function AuthForm({ title, description }: AuthFormProps) {
   // Agreeing to the policy comes before an account exists; the answer is
   // recorded right after sign-in (see ConsentGate).
   const [consent, setConsent] = useState<ConsentValue>(EMPTY_CONSENT)
-  const consentOk = consentComplete(consent)
+  const consentNow = consentState(consent)
+  const consentOk = consentNow.complete
   const keepConsent = () => {
-    if (consentComplete(consent)) {
-      savePendingConsent({ ageBracket: consent.ageBracket, parentOk: consent.parentOk, version: POLICY_VERSION })
+    if (consentNow.complete && consentNow.birthDate) {
+      savePendingConsent({ birthDate: consentNow.birthDate, parentOk: consentNow.minor && consent.parentOk, version: POLICY_VERSION })
     }
   }
 
@@ -170,7 +171,8 @@ export function AuthForm({ title, description }: AuthFormProps) {
             autoComplete="one-time-code"
             required
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            maxLength={10}
+            onChange={(e) => setCode(e.target.value.replace(/D/g, ""))}
             placeholder={t.auth.codePlaceholder}
             aria-label={t.auth.codePlaceholder}
             className={`${inputClass} text-center text-lg tracking-[0.3em]`}

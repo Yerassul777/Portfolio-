@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils"
 
 /**
  * - "sheet": the website. Slides in from the right over a dimmed page.
- * - "screen": the installed app. A full-screen tab above the tab bar: no
- *   overlay, no slide, the tab bar stays usable, switching tabs is instant.
+ * - "screen": the installed app. Fills the window next to the app's
+ *   navigation (above the tab bar on a phone, right of the rail on an iPad
+ *   or desktop): no overlay, no slide, the navigation stays usable,
+ *   switching tabs is instant.
  */
 export type PanelVariant = "sheet" | "screen"
 
@@ -20,7 +22,7 @@ export function panelContentProps(variant: PanelVariant, returnFocusRef: RefObje
       "flex flex-col overflow-hidden border-gray-800 bg-[#0d1210] p-0 [&>button]:hidden",
       variant === "sheet"
         ? "w-full sm:w-[90vw] sm:max-w-[600px] md:w-[600px]"
-        : "inset-x-0 left-0 right-0 top-0 bottom-[var(--app-tabbar-height)] h-auto w-full max-w-none border-0 sm:max-w-none data-[state=closed]:animate-none data-[state=open]:animate-none"
+        : "inset-y-auto left-[var(--app-rail-width)] right-0 top-[var(--app-titlebar-height)] bottom-[var(--app-tabbar-height)] h-auto w-auto max-w-none border-0 sm:max-w-none data-[state=closed]:animate-none data-[state=open]:animate-none"
     ),
     onCloseAutoFocus: (event: Event) => {
       event.preventDefault()
@@ -45,6 +47,8 @@ interface PanelFrameProps {
   closeLabel: string
   /** Under the title, e.g. tabs. */
   headerExtra?: ReactNode
+  /** Right of the title, e.g. the profile button. */
+  headerAction?: ReactNode
   children: ReactNode
   footer?: ReactNode
 }
@@ -59,6 +63,7 @@ export function PanelFrame({
   description,
   closeLabel,
   headerExtra,
+  headerAction,
   children,
   footer,
 }: PanelFrameProps) {
@@ -73,6 +78,8 @@ export function PanelFrame({
               </span>
               {title}
             </SheetTitle>
+            <div className="flex items-center gap-1">
+            {headerAction}
             {variant === "sheet" && (
               <SheetClose asChild>
                 <Button variant="ghost" size="icon" aria-label={closeLabel} className="size-11 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
@@ -80,11 +87,14 @@ export function PanelFrame({
                 </Button>
               </SheetClose>
             )}
+            </div>
           </div>
           <SheetDescription className="mt-1 text-sm text-gray-400">{description}</SheetDescription>
           {headerExtra}
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto w-full max-w-3xl">{children}</div>
+        </div>
         {footer && (
           <div className="shrink-0 border-t border-gray-800 bg-[#0a0f0d] px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>
         )}

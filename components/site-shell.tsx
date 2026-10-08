@@ -32,7 +32,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const { locale, t } = useI18n()
 
   return (
-    <div className="relative min-h-svh bg-[#0a0f0d]">
+    // overflow-x: clip — nothing can make a phone page wider than the screen
+    // (and slide sideways), without breaking the sticky header as "hidden" would.
+    <div className="relative min-h-svh overflow-x-clip bg-[#0a0f0d]">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-emerald-500 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-emerald-950"
@@ -69,7 +71,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* backdrop-blur only from sm up: on phones it re-blurs the page under the header on every scroll frame. */}
-      <header className="sticky top-0 z-40 border-b border-emerald-500/10 bg-[#0a0f0d] pt-[env(safe-area-inset-top)] sm:bg-[#0a0f0d]/80 sm:backdrop-blur-md">
+      <header className="sticky top-[var(--app-titlebar-height)] z-40 border-b border-emerald-500/10 bg-[#0a0f0d] pt-[env(safe-area-inset-top)] sm:bg-[#0a0f0d]/80 sm:backdrop-blur-md">
         <div className="container mx-auto flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Link href={`/${locale}`} title={t.header.home} className="flex min-h-11 min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
             <Logo />

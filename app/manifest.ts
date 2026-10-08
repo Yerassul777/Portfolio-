@@ -14,6 +14,9 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: HTML_LANG[DEFAULT_LOCALE],
     start_url: `/${DEFAULT_LOCALE}`,
     scope: "/",
+    // On a desktop the app draws its own title bar (app-shell.tsx), so the
+    // window has no browser-looking bar with the address; elsewhere, standalone.
+    display_override: ["window-controls-overlay", "standalone"],
     display: "standalone",
     background_color: "#0a0f0d",
     theme_color: "#0a0f0d",

@@ -107,7 +107,7 @@ export function OpportunityDetails({ opportunity, titleAs: Title = "h1", actions
         <h2 id="details-about" className="text-xs font-medium uppercase tracking-wider text-gray-400">
           {t.details.about}
         </h2>
-        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-gray-300">
+        <p data-selectable className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-300">
           {opportunity.description || t.details.noDescription}
         </p>
       </section>

@@ -4,6 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 /* The installed app (<html data-app="1">, see lib/app-mode.ts). */
 @custom-variant app (&:where([data-app] *));
+/* Wide enough for a side rail instead of a bottom tab bar (iPad, desktop),
+   but not a phone turned sideways. */
+@custom-variant rail {
+  @media (min-width: 768px) and (min-height: 500px) {
+    @slot;
+  }
+}
 
 :root {
   --background: oklch(1 0 0);
@@ -142,9 +149,25 @@
   }
 }
 
+/* --- Scrollbars: thin and in the site's colours, not the browser's grey ---- */
+html {
+  scrollbar-color: rgba(52, 211, 153, 0.28) #0a0f0d;
+}
+* {
+  scrollbar-width: thin;
+}
+:where(*:not(html)) {
+  scrollbar-color: rgba(52, 211, 153, 0.25) transparent;
+}
+
 /* --- The installed app --------------------------------------------------- */
+/* Layout of the app frame. A phone has a tab bar at the bottom; an iPad or a
+   desktop window has a rail on the left. A desktop window with the title bar
+   hidden (Window Controls Overlay) draws its own title bar at the top. */
 :root {
   --app-tabbar-height: 0px;
+  --app-rail-width: 0px;
+  --app-titlebar-height: 0px;
 }
 [data-app] {
   --app-tabbar-height: calc(4rem + env(safe-area-inset-bottom));
@@ -152,18 +175,148 @@
      custom pull-to-refresh owns the gesture at the top. */
   overscroll-behavior-y: none;
 }
-[data-app] body {
-  padding-bottom: var(--app-tabbar-height);
-  -webkit-tap-highlight-color: transparent;
+@media (min-width: 768px) and (min-height: 500px) {
+  [data-app] {
+    --app-tabbar-height: 0px;
+    --app-rail-width: 5.5rem;
+  }
 }
-/* Interface chrome is not text to select or images to save. */
-[data-app] :where(nav, header, button, [role="tab"]) {
+@media (display-mode: window-controls-overlay) {
+  [data-app] {
+    --app-titlebar-height: env(titlebar-area-height, 0px);
+  }
+}
+[data-app] body {
+  padding-top: var(--app-titlebar-height);
+  padding-bottom: var(--app-tabbar-height);
+  padding-left: var(--app-rail-width);
+  -webkit-tap-highlight-color: transparent;
+  /* An app's interface is not text to select; content opts back in. */
   -webkit-user-select: none;
   user-select: none;
+}
+[data-app] :where(input, textarea, [contenteditable], [data-selectable], [data-selectable] *) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* No pinch or double-tap zoom: the app lays itself out for the screen. */
+[data-app],
+[data-app] * {
+  touch-action: pan-x pan-y;
+}
+[data-app] :where(nav, header, button, [role="tab"], img) {
   -webkit-touch-callout: none;
 }
-[data-app] img {
-  -webkit-touch-callout: none;
+/* A screen (Favorites, Portfolio, AI) is open: the catalogue under it stays
+   put, so the wheel and the scrollbar belong to the screen. */
+[data-app][data-screen] {
+  overflow: hidden;
+}
+
+/* The desktop app's own title bar, in place of the browser's. */
+.app-titlebar {
+  display: none;
+}
+@media (display-mode: window-controls-overlay) {
+  .app-titlebar {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 70;
+    display: flex;
+    height: env(titlebar-area-height, 33px);
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: calc(env(titlebar-area-x, 0px) + 0.75rem);
+    background: #070b09;
+    border-bottom: 1px solid rgba(52, 211, 153, 0.08);
+    font-size: 12px;
+    color: #9ca3af;
+    app-region: drag;
+    -webkit-app-region: drag;
+  }
+}
+
+/* --- Launch screen ---------------------------------------------------------
+   Shown on a cold start of the installed app (data-splash, set by the inline
+   script in the root layout) and taken away once the app is ready, so the
+   first thing seen is the logo, not the page assembling itself. It looks
+   like the iOS launch images, so on an iPhone the hand-over is invisible.
+   The 4 s animation is a safety net if the script that ends it never runs. */
+#app-splash {
+  display: none;
+}
+[data-splash] #app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0a0f0d;
+  animation: splash-out 0.45s ease 4s forwards;
+}
+[data-splash="done"] #app-splash {
+  animation: splash-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+#app-splash .splash-logo {
+  position: relative;
+  width: min(24vmin, 132px);
+  height: min(24vmin, 132px);
+}
+#app-splash .splash-logo svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 12px 32px rgba(16, 185, 129, 0.35));
+}
+#app-splash .splash-glow {
+  position: absolute;
+  inset: -45%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.32), transparent 62%);
+  animation: splash-breathe 1.8s ease-in-out infinite;
+}
+#app-splash .splash-name {
+  margin-top: min(6vmin, 32px);
+  color: #f0fdf4;
+  font-weight: 700;
+  font-size: min(7.5vmin, 40px);
+  letter-spacing: -0.02em;
+}
+#app-splash .splash-credit {
+  position: absolute;
+  bottom: calc(6vh + env(safe-area-inset-bottom));
+  color: rgba(209, 250, 229, 0.55);
+  font-size: min(3.4vmin, 14px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+[data-splash="done"] #app-splash .splash-logo {
+  animation: splash-logo-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes splash-breathe {
+  50% {
+    transform: scale(1.12);
+    opacity: 0.7;
+  }
+}
+@keyframes splash-logo-out {
+  to {
+    transform: scale(1.18);
+  }
+}
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app-splash .splash-glow,
+  [data-splash="done"] #app-splash .splash-logo {
+    animation: none;
+  }
 }
 
 @layer base {

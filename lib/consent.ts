@@ -1,11 +1,11 @@
 "use client"
 
 import { useCallback } from "react"
-import useSWR from "swr"
+import useSWR, { useSWRConfig } from "swr"
 import { useAuth } from "@/components/auth-provider"
 import { loadSupabase } from "@/lib/supabase-browser"
-
-import { POLICY_VERSION, type AgeBracket } from "@/lib/policy"
+import { ageOn, todayInKazakhstan } from "@/lib/profile"
+import { AI_MIN_AGE, POLICY_VERSION, bracketForAge, type AgeBracket } from "@/lib/policy"
 
 export { POLICY_VERSION, type AgeBracket }
 export type ConsentKind = "terms" | "ai_processing" | "notes_to_ai" | "push"
@@ -16,12 +16,10 @@ export interface Consents {
   /** Agreed to the current policy (with a parent's agreement under 18). */
   terms: boolean
   ageBracket: AgeBracket | null
-  /** Read the notice that messages go to OpenAI. */
-  aiNotice: boolean
   notesToAi: boolean
 }
 
-const NONE: Consents = { terms: false, ageBracket: null, aiNotice: false, notesToAi: false }
+const NONE: Consents = { terms: false, ageBracket: null, notesToAi: false }
 
 async function fetchConsents(): Promise<Consents> {
   const { data, error } = await (await loadSupabase()).rpc("my_consents")
@@ -31,7 +29,6 @@ async function fetchConsents(): Promise<Consents> {
   return {
     terms: !!terms?.granted && terms.version === POLICY_VERSION,
     ageBracket: terms?.granted ? terms.age_bracket : null,
-    aiNotice: !!latest.get("ai_processing")?.granted,
     notesToAi: !!latest.get("notes_to_ai")?.granted,
   }
 }
@@ -39,7 +36,7 @@ async function fetchConsents(): Promise<Consents> {
 // What the sign-in form collected, kept until the sign-in completes (the
 // email link and the Google redirect both reload the page).
 const PENDING_KEY = "portfolio-pending-consent"
-export type PendingConsent = { ageBracket: AgeBracket; parentOk: boolean; version: string }
+export type PendingConsent = { birthDate: string; parentOk: boolean; version: string }
 
 export function savePendingConsent(consent: PendingConsent) {
   try {
@@ -52,7 +49,7 @@ function takePendingConsent(): PendingConsent | null {
     const raw = sessionStorage.getItem(PENDING_KEY)
     sessionStorage.removeItem(PENDING_KEY)
     const parsed = raw ? (JSON.parse(raw) as PendingConsent) : null
-    return parsed && parsed.version === POLICY_VERSION ? parsed : null
+    return parsed && parsed.version === POLICY_VERSION && /^\d{4}-\d{2}-\d{2}$/.test(parsed.birthDate) ? parsed : null
   } catch {
     return null
   }
@@ -60,7 +57,9 @@ function takePendingConsent(): PendingConsent | null {
 
 export function useConsents() {
   const { user } = useAuth()
-  const key = user ? (["consents", user.id] as const) : null
+  const userId = user?.id ?? null
+  const key = userId ? (["consents", userId] as const) : null
+  const { mutate: mutateKey } = useSWRConfig()
   const { data, error, mutate } = useSWR(key, fetchConsents, { revalidateOnFocus: false, dedupingInterval: 30_000 })
 
   const record = useCallback(
@@ -79,19 +78,49 @@ export function useConsents() {
     [mutate]
   )
 
+  /**
+   * Registration's last step, once the account exists: the date of birth goes
+   * into the profile (once; an existing one wins), the agreement into the
+   * consent log. The policy covers the assistant, so from 13 its consent is
+   * recorded with it and the chat opens without another question.
+   */
+  const register = useCallback(
+    async ({ birthDate, parentOk }: { birthDate: string; parentOk: boolean }) => {
+      if (!userId) return
+      const supabase = await loadSupabase()
+      const { data: profile } = await supabase.from("profiles").select("birth_date").maybeSingle()
+      const known = (profile as { birth_date: string | null } | null)?.birth_date ?? null
+      if (!known) {
+        const { error: profileError } = await supabase.from("profiles").update({ birth_date: birthDate }).eq("id", userId)
+        if (profileError) throw profileError
+      }
+      const age = ageOn(known ?? birthDate, todayInKazakhstan())
+      const ageBracket = bracketForAge(age)
+      const rows = [
+        { kind: "terms", granted: true, version: POLICY_VERSION, age_bracket: ageBracket, parent_ok: parentOk },
+        ...(age >= AI_MIN_AGE ? [{ kind: "ai_processing", granted: true, version: POLICY_VERSION, age_bracket: null, parent_ok: false }] : []),
+      ]
+      const { error: insertError } = await supabase.from("consents").insert(rows)
+      if (insertError) throw insertError
+      await Promise.all([mutate(), mutateKey(["profile", userId])])
+    },
+    [userId, mutate, mutateKey]
+  )
+
   /** Records what the sign-in form collected, if anything. Returns whether it did. */
   const recordPending = useCallback(async () => {
     const pending = takePendingConsent()
     if (!pending) return false
-    await record("terms", true, { ageBracket: pending.ageBracket, parentOk: pending.parentOk })
+    await register(pending)
     return true
-  }, [record])
+  }, [register])
 
   return {
     consents: data ?? NONE,
     ready: !user || data !== undefined || !!error,
     loadFailed: !!error && data === undefined,
     record,
+    register,
     recordPending,
   }
 }

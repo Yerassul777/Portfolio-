@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type RefObject } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSWRConfig } from "swr"
 import { ArrowDown, Bot, Briefcase, Heart, LayoutGrid, Loader2, type LucideIcon } from "lucide-react"
@@ -10,10 +11,12 @@ import { daysUntil } from "@/lib/deadline"
 import { useFavorites } from "@/lib/favorites"
 import { cn } from "@/lib/utils"
 
-// The installed app's frame: a tab bar instead of header buttons, pull-to-
-// refresh (a home-screen app on iOS has no reload at all), and the number on
-// the app icon. Loaded only in standalone mode (HeaderTools), so none of this
-// is in the website's JavaScript.
+// The installed app's frame: a tab bar (phone) or a side rail (iPad,
+// desktop) instead of header buttons, the desktop window's own title bar,
+// pull-to-refresh (a home-screen app on iOS has no reload at all), the number
+// on the app icon, the end of the launch screen, and no browser habits (zoom,
+// the page's context menu). Loaded only in standalone mode (HeaderTools), so
+// none of this is in the website's JavaScript.
 
 export type AppTab = "catalogue" | "favorites" | "portfolio" | "ai"
 
@@ -36,13 +39,26 @@ interface AppShellProps {
 
 export function AppShell({ active, onSelect, focusRef }: AppShellProps) {
   const { t } = useI18n()
-  return (
+  useAppBehaviour()
+  // Rendered into <body>: inside the page header the bar would be positioned
+  // against the header (its backdrop filter makes it the containing block),
+  // not against the screen.
+  return createPortal(
     <>
+      <div className="app-titlebar" aria-hidden="true">
+        <span className="flex h-4 w-4 items-center justify-center rounded bg-gradient-to-br from-emerald-500 to-green-600 text-[8px] font-bold text-white">P+</span>
+        <span className="font-medium text-gray-300">{t.meta.siteName}</span>
+        <span className="text-gray-600">·</span>
+        <span>{t.app.tabs[active]}</span>
+      </div>
       <nav
         aria-label={t.app.tabsLabel}
-        className="fixed inset-x-0 bottom-0 z-[60] border-t border-emerald-500/10 bg-[#0a0f0d] pb-[env(safe-area-inset-bottom)]"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-[60] border-t border-emerald-500/10 bg-[#0a0f0d] pb-[env(safe-area-inset-bottom)]",
+          "rail:inset-x-auto rail:left-0 rail:top-[var(--app-titlebar-height)] rail:w-[var(--app-rail-width)] rail:border-t-0 rail:border-r rail:bg-[#080c0a] rail:pb-0"
+        )}
       >
-        <ul className="mx-auto grid h-16 max-w-xl grid-cols-4">
+        <ul className="mx-auto grid h-16 max-w-xl grid-cols-4 rail:h-auto rail:grid-cols-1 rail:gap-2 rail:px-2 rail:pt-4">
           {TABS.map(({ id, icon: Icon }) => {
             const selected = active === id
             return (
@@ -56,8 +72,8 @@ export function AppShell({ active, onSelect, focusRef }: AppShellProps) {
                     onSelect(id)
                   }}
                   className={cn(
-                    "flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors active:scale-95",
-                    selected ? "text-emerald-300" : "text-gray-400"
+                    "flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors active:scale-95 rail:h-16 rail:rounded-2xl",
+                    selected ? "text-emerald-300" : "text-gray-400 hover:text-gray-200 rail:hover:bg-white/[0.03]"
                   )}
                 >
                   <span
@@ -77,8 +93,59 @@ export function AppShell({ active, onSelect, focusRef }: AppShellProps) {
       </nav>
       {active === "catalogue" && <PullToRefresh />}
       <IconBadge />
-    </>
+    </>,
+    document.body
   )
+}
+
+/** Time the launch screen stays at least, from the start of the page. */
+const SPLASH_MIN_MS = 900
+
+/**
+ * What makes the window behave like an app rather than a web page:
+ * - the launch screen goes away now that the app is ready;
+ * - no zooming with pinch (iOS gestures), Ctrl + wheel or Ctrl +/-/0;
+ * - right-click and long-press menus only where they help: on text fields
+ *   and selected text, not on the interface.
+ */
+function useAppBehaviour() {
+  useEffect(() => {
+    const root = document.documentElement
+    let removeSplash: number | undefined
+    const endSplash = window.setTimeout(() => {
+      if (root.dataset.splash !== "1") return
+      root.dataset.splash = "done"
+      removeSplash = window.setTimeout(() => delete root.dataset.splash, 500)
+    }, Math.max(0, SPLASH_MIN_MS - performance.now()))
+
+    const stop = (event: Event) => event.preventDefault()
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) event.preventDefault()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && ["+", "=", "-", "_", "0"].includes(event.key)) event.preventDefault()
+    }
+    const onContextMenu = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (target?.closest("input, textarea, [contenteditable]")) return
+      if (window.getSelection()?.toString()) return
+      event.preventDefault()
+    }
+    document.addEventListener("gesturestart", stop)
+    document.addEventListener("gesturechange", stop)
+    window.addEventListener("wheel", onWheel, { passive: false })
+    window.addEventListener("keydown", onKey)
+    document.addEventListener("contextmenu", onContextMenu)
+    return () => {
+      window.clearTimeout(endSplash)
+      window.clearTimeout(removeSplash)
+      document.removeEventListener("gesturestart", stop)
+      document.removeEventListener("gesturechange", stop)
+      window.removeEventListener("wheel", onWheel)
+      window.removeEventListener("keydown", onKey)
+      document.removeEventListener("contextmenu", onContextMenu)
+    }
+  }, [])
 }
 
 // Indicator travel, in px; the finger moves twice as far (resistance 0.5).

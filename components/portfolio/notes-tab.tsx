@@ -317,7 +317,7 @@ export function NotesTab({ active }: { active: boolean }) {
                               className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                             >
                               <h4 className="break-words font-medium text-white transition-colors hover:text-emerald-400">{title}</h4>
-                              <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-400">{note.content || t.notes.editHint}</p>
+                              <p data-selectable className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-400">{note.content || t.notes.editHint}</p>
                             </button>
                             {/* Always visible on touch screens; revealed on hover or focus with a mouse. */}
                             <Button

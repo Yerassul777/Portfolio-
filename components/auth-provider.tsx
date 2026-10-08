@@ -16,7 +16,7 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null)
 
 // Per-user data cached by SWR (lib/notes.ts, chat.ts, favorites.ts, portfolio.ts, consent.ts).
-const ACCOUNT_KEYS = new Set(["notes", "ai_messages", "favorites", "portfolio", "consents"])
+const ACCOUNT_KEYS = new Set(["notes", "ai_messages", "favorites", "portfolio", "consents", "profile"])
 
 const AUTH_IN_URL = /[?&#](code|access_token|error_description)=/
 

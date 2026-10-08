@@ -199,7 +199,7 @@ function EntryCard({
               {entry.organizer}
             </p>
           )}
-          {entry.description && <p className="whitespace-pre-wrap break-words text-sm text-gray-400">{entry.description}</p>}
+          {entry.description && <p data-selectable className="whitespace-pre-wrap break-words text-sm text-gray-400">{entry.description}</p>}
         </div>
         <div className="flex shrink-0">
           <Button variant="ghost" size="icon" aria-label={format(t.portfolio.edit, { title: entry.title })} onClick={onEdit} className="size-11 text-gray-400 hover:text-white">

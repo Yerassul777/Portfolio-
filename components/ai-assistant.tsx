@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, type ReactNode, type RefObject } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, type MouseEvent, type ReactNode, type RefObject } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
-import { Bot, Send, Loader2, Sparkles, TrendingUp, X, ShieldAlert } from "lucide-react"
+import { ArrowDown, ArrowUp, Bot, Send, Loader2, Sparkles, TrendingUp, X, ShieldAlert } from "lucide-react"
 import { AuthForm } from "@/components/auth-form"
 import { ConsentGate } from "@/components/consent"
 import { panelContentProps, type PanelVariant } from "@/components/panel-frame"
@@ -17,6 +18,10 @@ import { format, plural } from "@/lib/i18n/format"
 import { loadSupabase } from "@/lib/supabase-browser"
 import { useChat, type ChatMessage } from "@/lib/chat"
 import { useNotesData } from "@/lib/notes"
+import { ageOn, shownName, todayInKazakhstan, useProfile } from "@/lib/profile"
+import { AI_MIN_AGE } from "@/lib/policy"
+import type { Locale } from "@/lib/i18n/config"
+import type { Dictionary } from "@/lib/i18n"
 
 type Quota = { used: number; limit: number }
 
@@ -26,7 +31,9 @@ const URL_PATTERN = /https?:\/\/[^\s<>"'«»]+/g
 
 // Turns bare http(s) URLs into links. Built from React elements, never HTML,
 // so model output cannot inject markup; the pattern only admits http(s).
-function linkify(text: string) {
+// Links to this site open inside the app (`onInternal` gets the path);
+// others open in the browser.
+function linkify(text: string, onInternal: (path: string) => void) {
   const parts: ReactNode[] = []
   let last = 0
   for (const match of text.matchAll(URL_PATTERN)) {
@@ -34,12 +41,25 @@ function linkify(text: string) {
     const url = match[0].replace(/[.,;:!?)\]]+$/, "")
     const start = match.index ?? 0
     if (start > last) parts.push(text.slice(last, start))
+    let internal: string | null = null
+    try {
+      const parsed = new URL(url)
+      if (parsed.origin === window.location.origin) internal = parsed.pathname + parsed.search + parsed.hash
+    } catch {}
+    const path = internal
     parts.push(
       <a
         key={start}
         href={url}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...(path
+          ? {
+              onClick: (event: MouseEvent) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return
+                event.preventDefault()
+                onInternal(path)
+              },
+            }
+          : { target: "_blank", rel: "noopener noreferrer" })}
         className="break-all text-emerald-400 underline underline-offset-2 hover:text-emerald-300"
       >
         {url}
@@ -51,9 +71,31 @@ function linkify(text: string) {
   return parts
 }
 
+const ZONE = "Asia/Almaty"
+const dayKey = (timestamp: string) => new Date(timestamp).toLocaleDateString("sv-SE", { timeZone: ZONE })
+
+/** "Сегодня", "Вчера", "5 октября", or "5 октября 2025" for another year. */
+function dayLabel(timestamp: string, locale: Locale, t: Dictionary): string {
+  const day = dayKey(timestamp)
+  const today = todayInKazakhstan()
+  if (day === today) return t.ai.today
+  if (day === dayKey(new Date(Date.now() - 86_400_000).toISOString())) return t.ai.yesterday
+  return new Date(timestamp).toLocaleDateString(HTML_LANG[locale], {
+    day: "numeric",
+    month: "long",
+    ...(day.slice(0, 4) !== today.slice(0, 4) ? { year: "numeric" } : {}),
+    timeZone: ZONE,
+  })
+}
+
+/** Distance from the bottom, in px, that still counts as "at the latest message". */
+const NEAR_BOTTOM = 120
+
 interface AIAssistantPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Closes the panel without a history step: a link inside it is navigating. */
+  onLeave: () => void
   /** The header button, which gets focus back when the panel closes. */
   returnFocusRef: RefObject<HTMLElement | null>
   variant?: PanelVariant
@@ -63,30 +105,38 @@ interface AIAssistantPanelProps {
  * The assistant panel. HeaderTools renders the header button and loads this
  * module on demand, so none of it is in the page's initial JavaScript.
  */
-export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant = "sheet" }: AIAssistantPanelProps) {
+export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, variant = "sheet" }: AIAssistantPanelProps) {
   const { locale, t } = useI18n()
+  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const { consents, ready: consentsReady, record } = useConsents()
-  const [noticeBusy, setNoticeBusy] = useState(false)
-  // What the panel shows: sign-in, the consent steps, or the chat.
+  const { consents, ready: consentsReady } = useConsents()
+  const { profile, ready: profileReady } = useProfile()
+  // The date of birth decides; accounts from before it existed have the age group they chose.
+  const tooYoung = profile?.birthDate
+    ? ageOn(profile.birthDate, todayInKazakhstan()) < AI_MIN_AGE
+    : consents.ageBracket === "under13"
+  // What the panel shows: sign-in, the last registration step, or the chat.
   const stage = !user
     ? "signin"
-    : !consentsReady
+    : !consentsReady || !profileReady
       ? "loading"
       : !consents.terms
         ? "consent"
-        : consents.ageBracket === "under13"
+        : tooYoung
           ? "under13"
-          : !consents.aiNotice
-            ? "notice"
-            : "chat"
+          : "chat"
+  const openInApp = (path: string) => {
+    onLeave()
+    router.push(path)
+  }
   // Tagged with the user it belongs to, so switching accounts never shows the previous user's allowance.
   const [quotaState, setQuotaState] = useState<{ userId: string; quota: Quota } | null>(null)
   const quota = user && quotaState?.userId === user.id ? quotaState.quota : null
   const setQuota = (next: Quota) => {
     if (user) setQuotaState({ userId: user.id, quota: next })
   }
-  const chat = useChat(open)
+  // Loaded only for those who may chat (not before registration, not under 13).
+  const chat = useChat(open && stage === "chat")
   // Sent, not yet answered: shown under the history until the reply arrives.
   const [pending, setPending] = useState<Message | null>(null)
   const messages = pending ? [...chat.messages, pending] : chat.messages
@@ -97,12 +147,60 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
   const { notes } = useNotesData(open)
   // Notes reach OpenAI only if the user switched that on (Portfolio → Account).
   const notesShared = consents.notesToAi && notes.length > 0
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  // Where the reader is: at the latest message, or reading back. Decides the
+  // jump button's direction and whether a new message scrolls the chat.
+  const [nearBottom, setNearBottom] = useState(true)
+  const [scrollable, setScrollable] = useState(false)
+  const shownCount = useRef(0)
+  const chatVisible = open && stage === "chat" && chat.ready && !chat.loadFailed
+
+  const scrollToEnd = (behavior: ScrollBehavior) => {
+    const box = chatContainerRef.current
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior })
+  }
+  // Pinned to the latest message while the reader is there, so content that
+  // settles after a scroll (a reply's last lines, the allowance line below)
+  // never leaves the newest message half-hidden.
+  const pinned = useRef(true)
+  const measure = () => {
+    const box = chatContainerRef.current
+    if (!box) return
+    const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < NEAR_BOTTOM
+    pinned.current = atEnd
+    setNearBottom(atEnd)
+    setScrollable(box.scrollHeight > box.clientHeight * 1.5)
+  }
+
+  // Opening the chat shows the latest messages at once, not the first ones;
+  // a new message (sent, answered, the "thinking" bubble) follows the
+  // conversation — unless the reader has scrolled back to read something.
+  useLayoutEffect(() => {
+    if (!chatVisible) {
+      shownCount.current = 0
+      return
+    }
+    const first = shownCount.current === 0
+    const grew = messages.length !== shownCount.current
+    shownCount.current = Math.max(messages.length, 1)
+    if (first) {
+      pinned.current = true
+      scrollToEnd("auto")
+    } else if ((grew || isLoading) && (nearBottom || pending)) scrollToEnd("smooth")
+    measure()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatVisible, messages.length, isLoading])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
-  }, [messages.length, isLoading])
+    const box = chatContainerRef.current
+    if (!chatVisible || !box || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(() => {
+      if (pinned.current) box.scrollTop = box.scrollHeight
+    })
+    observer.observe(box)
+    if (box.firstElementChild) observer.observe(box.firstElementChild)
+    return () => observer.disconnect()
+  }, [chatVisible])
 
   // Today's allowance, so the limit is visible before it is hit. RLS returns
   // only this user's rows; the server remains the one that enforces it.
@@ -282,27 +380,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
         ) : stage === "under13" ? (
           <div className="flex-1 space-y-3 px-6 py-12 text-center">
             <ShieldAlert aria-hidden="true" className="mx-auto h-8 w-8 text-amber-300" />
-            <p className="mx-auto max-w-sm text-sm leading-relaxed text-gray-300">{t.aiNotice.under13}</p>
-          </div>
-        ) : stage === "notice" ? (
-          <div className="flex-1 overflow-y-auto min-h-0 px-6 py-10">
-            <div className="mx-auto max-w-sm space-y-4 text-center">
-              <h3 className="text-lg font-semibold text-white">{t.aiNotice.title}</h3>
-              <p className="text-sm leading-relaxed text-gray-300">{t.aiNotice.text}</p>
-              <Button
-                className="h-11 w-full"
-                disabled={noticeBusy}
-                onClick={async () => {
-                  setNoticeBusy(true)
-                  await record("ai_processing", true).catch(() => setError(t.consent.saveFailed))
-                  setNoticeBusy(false)
-                }}
-              >
-                {noticeBusy && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t.aiNotice.ok}
-              </Button>
-              {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-            </div>
+            <p className="mx-auto max-w-sm text-sm leading-relaxed text-gray-300">{t.aiAge.under13}</p>
           </div>
         ) : !chat.ready ? (
           <div role="status" aria-label={t.ai.thinking} className="flex flex-1 justify-center py-12">
@@ -316,18 +394,24 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
             </Button>
           </div>
         ) : (
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={chatContainerRef}
+          onScroll={measure}
           className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 min-h-0"
         >
-          <div className="space-y-4">
+          <div className="mx-auto max-w-3xl space-y-4">
             {messages.length === 0 && (
               <div className="text-center py-12 space-y-4">
                 <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500/20 to-green-600/20 flex items-center justify-center mx-auto">
                   <Bot className="h-8 w-8 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-gray-300 text-base font-medium">{t.ai.greeting}</p>
+                  <p className="text-gray-300 text-base font-medium">
+                    {profile && (profile.displayName || profile.nickname)
+                      ? format(t.ai.greetingName, { name: shownName(profile, undefined) })
+                      : t.ai.greeting}
+                  </p>
                   <p className="text-gray-400 text-sm mt-2">{t.ai.greetingText}</p>
                 </div>
                 <div className="grid grid-cols-1 gap-2 max-w-sm mx-auto mt-6">
@@ -346,8 +430,15 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
             )}
 
             {messages.map((message, index) => (
+              <div key={`${message.timestamp}-${index}`} className="space-y-4">
+              {(index === 0 || dayKey(messages[index - 1].timestamp) !== dayKey(message.timestamp)) && (
+                <div className="flex justify-center pt-2">
+                  <span className="rounded-full border border-gray-800 bg-[#111714] px-3 py-1 text-xs font-medium text-gray-400">
+                    {dayLabel(message.timestamp, locale, t)}
+                  </span>
+                </div>
+              )}
               <div
-                key={`${message.timestamp}-${index}`}
                 className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.role === "assistant" && (
@@ -356,7 +447,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
                   </div>
                 )}
                 <Card
-                  className={`max-w-[80%] border-0 shadow-none ${
+                  className={`max-w-[80%] gap-0 border-0 py-0 shadow-none ${
                     message.role === "user"
                       ? "bg-gradient-to-br from-emerald-600 to-green-700"
                       : "bg-[#141a17]"
@@ -364,11 +455,12 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
                 >
                   <CardContent className="p-3">
                     <p
-                      className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                      data-selectable
+                      className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
                         message.role === "user" ? "text-white" : "text-gray-300"
                       }`}
                     >
-                      {message.role === "assistant" ? linkify(message.content) : message.content}
+                      {message.role === "assistant" ? linkify(message.content, openInApp) : message.content}
                     </p>
                     <p
                       className={`text-xs mt-2 ${
@@ -383,6 +475,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
                   </CardContent>
                 </Card>
               </div>
+              </div>
             ))}
 
             {isLoading && (
@@ -390,7 +483,7 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
                 <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shrink-0 mt-1 animate-pulse">
                   <Bot className="h-3.5 w-3.5 text-white" />
                 </div>
-                <Card className="bg-[#141a17] border-0 shadow-none">
+                <Card className="gap-0 border-0 bg-[#141a17] py-0 shadow-none">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
@@ -410,8 +503,24 @@ export function AIAssistantPanel({ open, onOpenChange, returnFocusRef, variant =
               </div>
             )}
 
-            <div ref={messagesEndRef} />
           </div>
+        </div>
+        {scrollable && (
+          <button
+            type="button"
+            onClick={() => {
+              const box = chatContainerRef.current
+              if (!box) return
+              if (nearBottom) box.scrollTo({ top: 0, behavior: "smooth" })
+              else scrollToEnd("smooth")
+            }}
+            aria-label={nearBottom ? t.ai.toTop : t.ai.toLatest}
+            title={nearBottom ? t.ai.toTop : t.ai.toLatest}
+            className="absolute bottom-3 right-4 flex size-11 items-center justify-center rounded-full border border-emerald-500/30 bg-[#0f1a15]/95 text-emerald-300 shadow-lg shadow-black/40 transition-transform hover:bg-[#13221b] active:scale-90"
+          >
+            {nearBottom ? <ArrowUp aria-hidden="true" className="h-5 w-5" /> : <ArrowDown aria-hidden="true" className="h-5 w-5" />}
+          </button>
+        )}
         </div>
         )}
 
