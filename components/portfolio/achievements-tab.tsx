@@ -137,7 +137,8 @@ function Achievements() {
       )}
 
       <section aria-labelledby="completed-title" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
+        {/* Wraps: the PDF form, once open, takes a line of its own below the heading. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 id="completed-title" className="text-xs font-medium uppercase tracking-wider text-gray-400">
             {t.portfolio.sectionCompleted}
           </h3>
@@ -367,12 +368,12 @@ function ExportButton() {
         event.preventDefault()
         void download()
       }}
-      className="w-full space-y-2 rounded-xl border border-gray-700 p-3 sm:max-w-xs"
+      className="min-w-0 basis-full space-y-2 rounded-xl border border-gray-700 p-3"
     >
       <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={t.print.namePlaceholder} aria-label={t.print.namePlaceholder} className="h-11 border-gray-700 bg-[#0d1210] text-base text-white sm:text-sm" />
       <p className="text-xs text-gray-400">{t.print.nameHint}</p>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={busy} className="h-11 flex-1">
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={busy} className="h-11 min-w-0 flex-1">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           {t.print.print}
         </Button>

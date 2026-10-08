@@ -226,7 +226,8 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
         {data.items.map((opportunity, index) => (
           <li
             key={opportunity.id}
-            className={animateCards ? "card-enter" : undefined}
+            // Cards past the first rows are laid out and painted only when scrolled near.
+            className={cn(index >= 4 && "cv-auto", animateCards && "card-enter")}
             style={animateCards ? ({ "--i": index } as CSSProperties) : undefined}
           >
             <OpportunityCard opportunity={opportunity} onOpen={openDetails} priority={index < 4} />

@@ -142,6 +142,26 @@
   }
 }
 
+/* Off-screen cards skip layout and paint until they come near the viewport.
+   The intrinsic size keeps the scrollbar honest meanwhile. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
+
+/* Weak devices (data-lite, set in the root layout's inline script): no
+   entrance animations, no blur, no breathing glow. Same look at rest. */
+[data-lite] .card-enter {
+  animation: none;
+}
+[data-lite] * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+[data-lite] #app-splash .splash-glow {
+  animation: none;
+}
+
 /* The heart's little pop when something is saved. */
 @keyframes heart-pop {
   40% {

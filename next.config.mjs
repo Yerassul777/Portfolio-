@@ -58,11 +58,13 @@ const nextConfig = {
   experimental: {
     // A styled 404 for URLs outside /[locale], which has no single root layout.
     globalNotFound: true,
-    // The stylesheet (~15 KB gzipped, Tailwind) goes into the HTML instead of
-    // a separate render-blocking request. On a slow mobile link that request
-    // shared bandwidth with the JavaScript and held the first paint until
-    // ~2.4 s; inlined, text paints as soon as the HTML arrives.
-    inlineCss: true,
+    // Not inlined: inlining put the 106 KB stylesheet into every HTML page
+    // three times (once as <style>, twice in the React payload), 417 KB of
+    // HTML for /ru. A weak phone parsed all of it on every visit, and the
+    // installed app could not take the CSS from its cache. As a file it is
+    // one cached request; on a weak phone (CPU x6, slow 4G) the longest
+    // startup task went 408 → 246 ms and a repeat visit paints in 0.5 s.
+    inlineCss: false,
   },
   // Fonts for the link-preview images are read from disk at runtime.
   outputFileTracingIncludes: {

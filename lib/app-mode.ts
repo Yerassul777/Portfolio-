@@ -33,6 +33,8 @@ export function isIOS(): boolean {
  *   script, so it runs again once the document is parsed).
  */
 export const APP_MODE_SCRIPT =
+  // Weak device (≤ 2 GB of memory or ≤ 2 cores): data-lite turns off decorative motion (globals.css).
+  "try{var d=document.documentElement,n=navigator;if((n.hardwareConcurrency&&n.hardwareConcurrency<=2)||(n.deviceMemory&&n.deviceMemory<=2))d.dataset.lite='1'}catch(e){}" +
   "try{var d=document.documentElement;if(matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: window-controls-overlay)').matches||navigator.standalone===true){d.dataset.app='1';" +
   "try{if(!sessionStorage.getItem('app-launched')){sessionStorage.setItem('app-launched','1');d.dataset.splash='1'}}catch(e){d.dataset.splash='1'}" +
   "var z=function(){var m=document.querySelector('meta[name=viewport]');if(m&&m.content.indexOf('user-scalable')<0)m.content+=',maximum-scale=1,user-scalable=no'};z();document.addEventListener('DOMContentLoaded',z)}}catch(e){}"

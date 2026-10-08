@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Catalogue } from "@/components/catalogue"
@@ -63,8 +64,15 @@ export default async function CataloguePage(props: Props) {
 
   return (
     <>
-      <HeroSection locale={locale} t={t} compact={compact} highlights={highlights} />
-      <Catalogue initialQuery={query} initialPage={page} initialOpen={open} />
+      {/* Separate Suspense boundaries hydrate separately: React can yield
+          between them, so a slow phone gets several short tasks instead of
+          one long one, and a tap on either part is handled first. */}
+      <Suspense>
+        <HeroSection locale={locale} t={t} compact={compact} highlights={highlights} />
+      </Suspense>
+      <Suspense>
+        <Catalogue initialQuery={query} initialPage={page} initialOpen={open} />
+      </Suspense>
       {page && page.items.length > 0 && (
         <JsonLd
           data={{

@@ -93,7 +93,8 @@ export function PanelFrame({
           {headerExtra}
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-3xl">{children}</div>
+          {/* overflow-x: clip — a screen never becomes wider than the phone and slides sideways. */}
+          <div className="mx-auto w-full min-w-0 max-w-3xl overflow-x-clip">{children}</div>
         </div>
         {footer && (
           <div className="shrink-0 border-t border-gray-800 bg-[#0a0f0d] px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>
