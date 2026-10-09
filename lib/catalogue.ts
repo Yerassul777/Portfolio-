@@ -11,7 +11,7 @@ const MAX_PAGE = 1000
 // Everything a card or the detail view shows; `legacy` (the pre-Phase-2 row
 // archive) never needs to reach the browser.
 export const OPPORTUNITY_COLUMNS =
-  "id,kind,status,slug,title,description,link,deadline,image_url,subject,level,type,age_group,format,duration,city,field,requirements,grant_available,created_at,updated_at"
+  "id,kind,status,slug,title,description,link,deadline,image_url,subject,level,type,age_group,format,duration,city,field,requirements,grant_available,created_at,updated_at,source_url,reviewed_at"
 
 export type SortOrder = "deadline" | "newest"
 

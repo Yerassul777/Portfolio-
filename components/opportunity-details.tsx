@@ -10,6 +10,7 @@ import {
   GraduationCap,
   MapPin,
   Monitor,
+  ShieldCheck,
   SlidersHorizontal,
   Trophy,
   Users,
@@ -21,6 +22,9 @@ import { useI18n } from "@/components/i18n-provider"
 import { ShareButton } from "@/components/share-button"
 import { FavoriteButton } from "@/components/favorite-button"
 import { CalendarLink, ParticipateButton } from "@/components/opportunity-actions"
+import { formatDeadline } from "@/lib/deadline"
+import { HTML_LANG } from "@/lib/i18n/config"
+import { format } from "@/lib/i18n/format"
 import { opportunityPath } from "@/lib/site"
 import { FILTER_CONFIGS, getFilterLabel, type Opportunity } from "@/lib/types"
 
@@ -151,10 +155,24 @@ export function OpportunityDetails({ opportunity, titleAs: Title = "h1", actions
         {actions}
       </div>
 
-      {isWebUrl(opportunity.link) && hostname(opportunity.link) && (
-        <p className="break-all text-xs text-gray-400">
-          {t.details.source}: {hostname(opportunity.link)}
+      {isWebUrl(opportunity.source_url) && opportunity.reviewed_at ? (
+        // Found by the nightly search and checked by a person: say where and when.
+        <p className="flex items-start gap-1.5 break-words text-xs text-gray-400">
+          <ShieldCheck aria-hidden="true" className="mt-px h-3.5 w-3.5 shrink-0 text-emerald-400" />
+          <span>
+            {format(t.details.checked, {
+              site: hostname(opportunity.source_url) ?? "",
+              date: formatDeadline(opportunity.reviewed_at.slice(0, 10), "long", HTML_LANG[locale]),
+            })}
+          </span>
         </p>
+      ) : (
+        isWebUrl(opportunity.link) &&
+        hostname(opportunity.link) && (
+          <p className="break-all text-xs text-gray-400">
+            {t.details.source}: {hostname(opportunity.link)}
+          </p>
+        )
       )}
     </article>
   )

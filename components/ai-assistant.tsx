@@ -200,6 +200,8 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
     if (first) {
       pinned.current = true
       scrollToEnd("auto")
+      // Once more after the next paint: on a slow phone the last bubbles can settle a frame later.
+      requestAnimationFrame(() => pinned.current && scrollToEnd("auto"))
     } else if ((grew || isLoading) && (nearBottom || pending)) scrollToEnd("smooth")
     measure()
     // eslint-disable-next-line react-hooks/exhaustive-deps

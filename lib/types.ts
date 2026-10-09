@@ -29,6 +29,9 @@ export interface Opportunity {
   field?: string | null
   requirements?: string | null
   grant_available?: boolean | null
+  // Found by the nightly search (Phase 6): the page it came from, and when a person checked it.
+  source_url?: string | null
+  reviewed_at?: string | null
 }
 
 // Active filters: filter key -> selected values.

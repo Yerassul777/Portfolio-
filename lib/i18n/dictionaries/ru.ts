@@ -101,6 +101,7 @@ export const ru = {
     noDescription: "Описание не указано.",
     parameters: "Параметры",
     source: "Источник",
+    checked: "Найдено на {site}, проверено командой {date}",
     goToSite: "Перейти на сайт организатора",
     noLink: "Ссылка на источник не указана",
     share: "Поделиться",
