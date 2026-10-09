@@ -128,8 +128,8 @@ function prompt(today: string, kindHint: Kind | null, labels: Record<Kind, strin
 Правила:
 - is_opportunity: false, если на странице нет конкретной возможности, в которой можно участвовать (новость, отчёт о прошедшем, итоги, контакты, вакансия, список документов без мероприятия).
 - Пиши по-русски; title_kk и description_kk — на казахском, title_en и description_en — на английском. Описание — своими словами, только то, что есть на странице.
-- deadline — последний день подачи заявки или регистрации, только если он прямо написан. Дата проведения — не дедлайн. Если год не указан — null. Не угадывай и не придумывай даты.
-- deadline_evidence — дословная цитата со страницы, где написана эта дата.
+- deadline — последний день подачи заявки или регистрации. Если его нет, но написана дата ближайшего этапа, в котором ещё можно участвовать, — эта дата. Год должен быть написан в той же фразе: «4 декабря» без года — это null. Прошедшие этапы и даты награждения — не дедлайн. Не угадывай и не придумывай даты.
+- deadline_evidence — дословная цитата со страницы, где написана эта дата вместе с годом.
 - link — официальная страница регистрации или положения, если её адрес есть в тексте; иначе null.
 - Фильтры — только если это явно следует из текста; иначе null.
 - confidence — низкая, если страница устарела, неполная или ты сомневаешься.`
@@ -201,6 +201,23 @@ export async function extractOpportunity(input: {
   return checkExtraction(raw, input, usage)
 }
 
+const MONTH_STEMS = ["январ", "феврал", "март", "апрел", "ма[йя]", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"]
+const MONTH_STEMS_KK = ["қаңтар", "ақпан", "наурыз", "сәуір", "мамыр", "маусым", "шілде", "тамыз", "қыркүйек", "қазан", "қараша", "желтоқсан"]
+
+/** Whether the quote names this day, month and year ("1 марта 2027", "01.03.2027", "1.03.27"). */
+export function quoteStatesDate(quote: string, date: string): boolean {
+  const [y, m, d] = date.split("-").map(Number)
+  const q = quote.toLowerCase()
+  const numeric = [...q.matchAll(/(\d{1,2})[./](\d{1,2})[./](\d{2}|\d{4})(?!\d)/g)].some(
+    ([, dd, mm, yy]) => Number(dd) === d && Number(mm) === m && (yy.length === 4 ? Number(yy) === y : Number(yy) === y % 100)
+  )
+  if (numeric) return true
+  if (!new RegExp(`(^|\\D)${y}(\\D|$)`).test(q)) return false
+  const dayAt = [...q.matchAll(new RegExp(`(^|\\D)0?${d}(?!\\d)`, "g"))].map((match) => (match.index ?? 0) + match[0].length)
+  const month = new RegExp(`^\\s*(-?го\\s*)?(${MONTH_STEMS[m - 1]}|${MONTH_STEMS_KK[m - 1]})`)
+  return dayAt.some((at) => month.test(q.slice(at)))
+}
+
 /** Everything the model said, checked against the page and the catalogue's rules. */
 export function checkExtraction(
   raw: Record<string, unknown>,
@@ -215,8 +232,10 @@ export function checkExtraction(
   let confidence = typeof raw.confidence === "number" && Number.isFinite(raw.confidence) ? Math.min(1, Math.max(0, raw.confidence)) : 0
   let deadline = validDate(raw.deadline)
   let evidence = optional(raw.deadline_evidence, 300)
-  // The quote must really be on the page; otherwise the date is not trusted.
-  if (deadline && (!evidence || !squash(input.page.text).includes(squash(evidence)))) {
+  // The quote must really be on the page and must state this date, year
+  // included; otherwise the date is not trusted (a model likes to supply
+  // the year itself for "4 декабря").
+  if (deadline && (!evidence || !squash(input.page.text).includes(squash(evidence)) || !quoteStatesDate(evidence, deadline))) {
     deadline = null
     evidence = null
     confidence = Math.min(confidence, 0.5)
