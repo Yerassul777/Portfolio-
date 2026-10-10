@@ -25,7 +25,7 @@ import type { Opportunity } from "@/lib/types"
 // lookup per render.
 const REVALIDATE_SECONDS = 60
 // Bump when the shape of a cached result changes.
-const CACHE_VERSION = "v2"
+const CACHE_VERSION = "v3"
 
 function client() {
   const supabase = createPublicClient()

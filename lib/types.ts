@@ -29,6 +29,9 @@ export interface Opportunity {
   field?: string | null
   requirements?: string | null
   grant_available?: boolean | null
+  // Universities: last year's lowest ENT score that won a grant, and that year.
+  pass_score?: number | null
+  pass_score_year?: number | null
   // Found by the nightly search (Phase 6): the page it came from, and when a person checked it.
   source_url?: string | null
   reviewed_at?: string | null

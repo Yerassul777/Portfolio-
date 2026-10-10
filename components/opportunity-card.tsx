@@ -3,6 +3,7 @@
 import { Calendar, GraduationCap, MapPin, Monitor } from "lucide-react"
 import { isPlainClick } from "@/components/category-nav"
 import { DeadlineBadge, DeadlineBar } from "@/components/deadline-badge"
+import { EntBadge } from "@/components/ent-score"
 import { FavoriteButton } from "@/components/favorite-button"
 import { useI18n } from "@/components/i18n-provider"
 import { daysUntil } from "@/lib/deadline"
@@ -27,6 +28,7 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
   const city = opportunity.city ? filterValue(t, kind, "city", opportunity.city) : null
   const mode = opportunity.format ? filterValue(t, kind, "format", opportunity.format) : null
   const days = opportunity.deadline ? daysUntil(opportunity.deadline) : null
+  const hasPassScore = opportunity.pass_score !== null && opportunity.pass_score !== undefined
 
   const grant = opportunity.grant_available && (
     <span className="inline-flex items-center gap-1 rounded-full bg-primary/90 px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-lg">
@@ -71,7 +73,7 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
           {!image && <FavoriteButton opportunity={opportunity} look="plain" className="-mr-2 -mt-2 border-0 bg-transparent" />}
         </div>
 
-        {(city || mode || (!image && grant)) && (
+        {(city || mode || hasPassScore || (!image && grant)) && (
           <div className="flex flex-wrap gap-1.5">
             {!image && grant}
             {city && (
@@ -86,6 +88,7 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
                 {mode}
               </span>
             )}
+            <EntBadge opportunity={opportunity} />
           </div>
         )}
 

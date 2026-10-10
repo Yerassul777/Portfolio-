@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/components/auth-provider"
 import { PolicyDialog } from "@/components/consent"
+import { EntScoreField } from "@/components/ent-score"
 import { useI18n } from "@/components/i18n-provider"
 import { AVATAR_GRADIENTS, UserAvatar } from "@/components/user-avatar"
 import { useConsents } from "@/lib/consent"
@@ -53,8 +54,21 @@ function Account() {
   return (
     <div className="space-y-5 p-4">
       <ProfileForm profile={profile} save={save} />
+      <EntSection />
       <Settings />
     </div>
+  )
+}
+
+// Not part of the profile form: the score is kept on this device (lib/ent.ts)
+// and saved as it is typed.
+function EntSection() {
+  const { t } = useI18n()
+  return (
+    <section className="space-y-2 rounded-2xl border border-gray-800 p-4">
+      <EntScoreField />
+      <p className="text-xs leading-relaxed text-gray-400">{t.ent.accountHint}</p>
+    </section>
   )
 }
 

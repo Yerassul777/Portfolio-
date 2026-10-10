@@ -389,7 +389,7 @@ function EditFind({ find, onDone }: { find: Find; onDone: (saved: boolean) => vo
             // A person checked it: the nightly job will not overwrite this text.
             reviewed_at: new Date().toISOString(),
             // Filters belong to a category; a new category starts without them.
-            ...(kindChanged && { subject: null, level: null, type: null, age_group: null, format: null, duration: null, city: null, field: null, requirements: null, grant_available: null }),
+            ...(kindChanged && { subject: null, level: null, type: null, age_group: null, format: null, duration: null, city: null, field: null, requirements: null, grant_available: null, pass_score: null, pass_score_year: null }),
           })
           .eq("id", find.id)
         setBusy(false)

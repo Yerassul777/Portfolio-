@@ -82,6 +82,8 @@ export function AdminForm({ locale }: { locale: Locale }) {
     deadline: string
     imageUrl: string
     grantAvailable: boolean
+    passScore: string
+    passScoreYear: string
     filterValues: Record<string, string>
   }>({
     category: "",
@@ -91,6 +93,8 @@ export function AdminForm({ locale }: { locale: Locale }) {
     deadline: "",
     imageUrl: "",
     grantAvailable: false,
+    passScore: "",
+    passScoreYear: "",
     filterValues: {},
   })
 
@@ -102,6 +106,8 @@ export function AdminForm({ locale }: { locale: Locale }) {
       category: value,
       filterValues: {},
       grantAvailable: false,
+      passScore: "",
+      passScoreYear: "",
     }))
   }
 
@@ -113,7 +119,7 @@ export function AdminForm({ locale }: { locale: Locale }) {
     setMessage(null)
 
     try {
-      const insertData: Record<string, string | boolean | null> = {
+      const insertData: Record<string, string | number | boolean | null> = {
         kind: formData.category,
         title: formData.title,
         description: formData.description,
@@ -125,6 +131,11 @@ export function AdminForm({ locale }: { locale: Locale }) {
       // Add grant_available for universities
       if (formData.category === "universities") {
         insertData.grant_available = formData.grantAvailable
+        // Both or neither; the database checks it too (0–140, a year).
+        if (formData.passScore && formData.passScoreYear) {
+          insertData.pass_score = Number(formData.passScore)
+          insertData.pass_score_year = Number(formData.passScoreYear)
+        }
       }
 
       // Add filter values
@@ -156,6 +167,8 @@ export function AdminForm({ locale }: { locale: Locale }) {
         deadline: "",
         imageUrl: "",
         grantAvailable: false,
+        passScore: "",
+        passScoreYear: "",
         filterValues: {},
       })
       
@@ -403,6 +416,45 @@ export function AdminForm({ locale }: { locale: Locale }) {
                       checked={formData.grantAvailable}
                       onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, grantAvailable: checked }))}
                     />
+                  </div>
+                )}
+
+                {/* Last year's grant pass score: only from the published competition results. */}
+                {formData.category === "universities" && (
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <p className="text-base font-medium">Проходной балл на грант</p>
+                      <p className="text-sm text-muted-foreground">
+                        Самый низкий балл ЕНТ, с которым в этом вузе получили грант, и год. Только из официальных
+                        результатов конкурса — не угадывать. Оставьте пустым, если данных нет.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="pass-score">Балл (0–140)</Label>
+                        <Input
+                          id="pass-score"
+                          type="number"
+                          min={0}
+                          max={140}
+                          value={formData.passScore}
+                          required={!!formData.passScoreYear}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, passScore: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="pass-score-year">Год</Label>
+                        <Input
+                          id="pass-score-year"
+                          type="number"
+                          min={2015}
+                          max={2100}
+                          value={formData.passScoreYear}
+                          required={!!formData.passScore}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, passScoreYear: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DeadlineBadge } from "@/components/deadline-badge"
+import { EntPanel } from "@/components/ent-score"
 import { useI18n } from "@/components/i18n-provider"
 import { ShareButton } from "@/components/share-button"
 import { FavoriteButton } from "@/components/favorite-button"
@@ -107,6 +108,8 @@ export function OpportunityDetails({ opportunity, titleAs: Title = "h1", actions
         <ParticipateButton opportunity={opportunity} />
         <CalendarLink opportunity={opportunity} />
       </div>
+
+      <EntPanel opportunity={opportunity} />
 
       <section aria-labelledby="details-about" className="space-y-2">
         <h2 id="details-about" className="text-xs font-medium uppercase tracking-wider text-gray-400">
