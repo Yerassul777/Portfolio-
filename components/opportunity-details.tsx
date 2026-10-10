@@ -26,7 +26,8 @@ import { formatDeadline } from "@/lib/deadline"
 import { HTML_LANG } from "@/lib/i18n/config"
 import { format } from "@/lib/i18n/format"
 import { opportunityPath } from "@/lib/site"
-import { FILTER_CONFIGS, getFilterLabel, type Opportunity } from "@/lib/types"
+import { filterName, filterValue } from "@/lib/i18n/filters"
+import { FILTER_CONFIGS, type Opportunity } from "@/lib/types"
 
 const ICONS: Record<string, ReactNode> = {
   subject: <BookOpen className="h-4 w-4" />,
@@ -72,7 +73,7 @@ export function OpportunityDetails({ opportunity, titleAs: Title = "h1", actions
     const raw = opportunity[config.key]
     if (raw === null || raw === undefined || raw === "") return []
     const value = String(raw)
-    return [{ key: config.key as string, label: config.label, value: getFilterLabel(kind, config.key as string, value) }]
+    return [{ key: config.key as string, label: filterName(t, kind, config.key as string), value: filterValue(t, kind, config.key as string, value) }]
   })
 
   return (

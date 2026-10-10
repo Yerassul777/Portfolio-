@@ -7,7 +7,7 @@ import { JsonLd } from "@/components/json-ld"
 import { isCategory, isRefined, parseCatalogueQuery, type CatalogueQuery } from "@/lib/catalogue"
 import { getDictionary } from "@/lib/i18n"
 import { isEnabledLocale, type Locale } from "@/lib/i18n/config"
-import { opportunityMetadata } from "@/lib/metadata"
+import { localeAlternates, opportunityMetadata } from "@/lib/metadata"
 import { getCataloguePage, getHighlights, getOpportunity } from "@/lib/server-data"
 import { DEFAULT_CATEGORY, SITE_URL, categoryPath, opportunityPath } from "@/lib/site"
 
@@ -29,7 +29,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
   // ?o=<slug> is the in-page dialog: a copied URL should preview that item.
   if (query.open) {
-    const opportunity = await getOpportunity(query.open)
+    const opportunity = await getOpportunity(query.open, locale)
     if (opportunity) return opportunityMetadata(locale, opportunity)
   }
 
@@ -40,7 +40,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     title: isHome ? { absolute: t.meta.title } : copy.title,
     description: isHome ? t.meta.description : copy.description,
     // Filtered, searched and paged views are the same page for search engines.
-    alternates: { canonical: path },
+    alternates: localeAlternates(locale, (l) => categoryPath(l, query.category)),
     robots: isRefined(query) ? { index: false, follow: true } : undefined,
     openGraph: {
       url: path,
@@ -57,9 +57,9 @@ export default async function CataloguePage(props: Props) {
   const t = getDictionary(locale)
   const compact = query.category !== DEFAULT_CATEGORY || isRefined(query) || query.open !== null
   const [page, open, highlights] = await Promise.all([
-    getCataloguePage(query),
-    query.open ? getOpportunity(query.open) : Promise.resolve(null),
-    compact ? Promise.resolve(null) : getHighlights(),
+    getCataloguePage(query, locale),
+    query.open ? getOpportunity(query.open, locale) : Promise.resolve(null),
+    compact ? Promise.resolve(null) : getHighlights(locale),
   ])
 
   return (

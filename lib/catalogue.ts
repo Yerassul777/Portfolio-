@@ -105,8 +105,8 @@ export function catalogueHref(locale: Locale, query: CatalogueQuery): string {
 }
 
 /** Identifies one page of results; the open dialog is not part of it. */
-export function catalogueKey(query: CatalogueQuery): string {
-  return `${query.category}?${catalogueSearchParams(query, { withOpen: false })}`
+export function catalogueKey(query: CatalogueQuery, locale: Locale = "ru"): string {
+  return `${locale}/${query.category}?${catalogueSearchParams(query, { withOpen: false })}`
 }
 
 export function isRefined(query: CatalogueQuery): boolean {
@@ -125,7 +125,24 @@ export interface CataloguePage {
 
 export type CatalogueFilters = Partial<Record<string, string | boolean | string[]>>
 
+const TRANSLATED_COLUMNS: Record<Locale, string> = { ru: "", kz: ",title_kk,description_kk", en: ",title_en,description_en" }
+
+/** The catalogue columns plus the text in this language, if it is not Russian (only that one: no payload for the others). */
+export function opportunityColumns(locale: Locale = "ru"): string {
+  return OPPORTUNITY_COLUMNS + TRANSLATED_COLUMNS[locale]
+}
+
+/** The row with its title and description in this language where it has them; Russian otherwise. */
+export function localizeOpportunity<T extends Opportunity>(row: T, locale: Locale): T {
+  if (locale === "ru") return row
+  const { title_kk, title_en, description_kk, description_en, ...rest } = row
+  const title = locale === "kz" ? title_kk : title_en
+  const description = locale === "kz" ? description_kk : description_en
+  return { ...rest, title: title?.trim() ? title : row.title, description: description?.trim() ? description : row.description } as T
+}
+
 interface SearchOptions {
+  locale?: Locale
   kind?: Category
   filters?: CatalogueFilters
   search?: SearchWord[]
@@ -157,9 +174,10 @@ export async function searchCatalogue(client: SupabaseClient, options: SearchOpt
       p_limit: options.limit ?? PAGE_SIZE,
       p_offset: options.offset ?? 0,
     })
-    .select(OPPORTUNITY_COLUMNS)
+    .select(opportunityColumns(options.locale))
   if (error) throw error
-  return (data ?? []) as unknown as Opportunity[]
+  const locale = options.locale ?? "ru"
+  return ((data ?? []) as unknown as Opportunity[]).map((row) => localizeOpportunity(row, locale))
 }
 
 export async function countCatalogue(client: SupabaseClient, options: SearchOptions = {}): Promise<number> {
@@ -168,11 +186,17 @@ export async function countCatalogue(client: SupabaseClient, options: SearchOpti
   return typeof data === "number" ? data : 0
 }
 
-export async function fetchCataloguePage(client: SupabaseClient, query: CatalogueQuery): Promise<CataloguePage> {
+export async function fetchCataloguePage(
+  client: SupabaseClient,
+  query: CatalogueQuery,
+  locale: Locale = "ru",
+  labels: Record<string, string> = {}
+): Promise<CataloguePage> {
   const options: SearchOptions = {
+    locale,
     kind: query.category,
     filters: query.filters,
-    search: buildSearchWords(query.q, query.category),
+    search: buildSearchWords(query.q, query.category, labels),
     onlyOpen: !query.showPast,
   }
   const [items, total] = await Promise.all([
@@ -188,9 +212,9 @@ export async function fetchCataloguePage(client: SupabaseClient, query: Catalogu
  * filters), so this is what tells a search that found nothing here where it
  * did find something.
  */
-export async function countByCategory(client: SupabaseClient, q: string, onlyOpen = true): Promise<Record<Category, number>> {
+export async function countByCategory(client: SupabaseClient, q: string, onlyOpen = true, labels: Record<string, string> = {}): Promise<Record<Category, number>> {
   const counts = await Promise.all(
-    CATEGORIES.map((kind) => countCatalogue(client, { kind, onlyOpen, search: buildSearchWords(q, kind) }))
+    CATEGORIES.map((kind) => countCatalogue(client, { kind, onlyOpen, search: buildSearchWords(q, kind, labels) }))
   )
   return Object.fromEntries(CATEGORIES.map((kind, i) => [kind, counts[i]])) as Record<Category, number>
 }
@@ -214,11 +238,11 @@ export const CLOSING_SOON_DAYS = 7
 const HIGHLIGHT_SCAN = 50
 
 /** What the home page's first screen shows above the catalogue. */
-export async function fetchHighlights(client: SupabaseClient, soonCount = 3): Promise<Highlights> {
+export async function fetchHighlights(client: SupabaseClient, soonCount = 3, locale: Locale = "ru"): Promise<Highlights> {
   const today = todayInAlmaty()
   const [nearest, openTotal] = await Promise.all([
     // Sorted by nearest deadline, open ones only, so the ones with a deadline come first.
-    searchCatalogue(client, { onlyOpen: true, sort: "deadline", limit: HIGHLIGHT_SCAN }),
+    searchCatalogue(client, { locale, onlyOpen: true, sort: "deadline", limit: HIGHLIGHT_SCAN }),
     countCatalogue(client, { onlyOpen: true }),
   ])
   const dated = nearest.filter((o) => o.deadline && (daysUntil(o.deadline, today) ?? -1) >= 0)
@@ -229,9 +253,10 @@ export async function fetchHighlights(client: SupabaseClient, soonCount = 3): Pr
   }
 }
 
-export async function fetchOpportunityBySlug(client: SupabaseClient, slug: string): Promise<Opportunity | null> {
+export async function fetchOpportunityBySlug(client: SupabaseClient, slug: string, locale: Locale = "ru"): Promise<Opportunity | null> {
   if (!SLUG_PATTERN.test(slug)) return null
-  const { data, error } = await client.from("opportunities").select(OPPORTUNITY_COLUMNS).eq("slug", slug).maybeSingle()
+  const { data, error } = await client.from("opportunities").select(opportunityColumns(locale)).eq("slug", slug).maybeSingle()
   if (error) throw error
-  return (data as unknown as Opportunity | null) ?? null
+  const row = data as unknown as Opportunity | null
+  return row ? localizeOpportunity(row, locale) : null
 }

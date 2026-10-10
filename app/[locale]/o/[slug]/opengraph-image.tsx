@@ -12,7 +12,7 @@ export default async function Image({ params }: { params: Promise<{ locale: stri
   const { locale: raw, slug } = await params
   const locale = isEnabledLocale(raw) ? raw : DEFAULT_LOCALE
   const t = getDictionary(locale)
-  const opportunity = await getOpportunity(slug)
+  const opportunity = await getOpportunity(slug, locale)
 
   // Unknown slug: a 404, not a freshly drawn PNG for every made-up URL.
   if (!opportunity) return new Response(null, { status: 404 })

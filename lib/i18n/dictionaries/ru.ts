@@ -3,7 +3,8 @@ import { ruError } from "./ru-error"
 
 // Every string the interface shows. Filter vocabulary (subjects, cities, levels)
 // stays in FILTER_CONFIGS in lib/types.ts, the single source the UI, the admin
-// form and the AI tool share; translating it is part of Phase 7.
+// form and the AI tool share; it is Russian there, so `filters` below is empty
+// here and holds the translations in kz.ts and en.ts (lib/i18n/filters.ts).
 //
 // Other locales must match this shape exactly (see Dictionary below).
 export const ru = {
@@ -413,6 +414,31 @@ export const ru = {
     title: "Страница не найдена",
     text: "Такой страницы нет. Возможно, ссылка устарела или в адресе опечатка.",
     home: "Перейти в каталог",
+  },
+  language: {
+    label: "Язык",
+  },
+  // Server answers carry a code; the interface says it in the reader's language.
+  apiErrors: {
+    auth_required: "Сессия истекла. Войдите снова.",
+    consent_required: "Сначала завершите регистрацию.",
+    age_restricted: "Доступно с 13 лет.",
+    rate_limited: "Слишком много запросов. Попробуйте через час.",
+    too_fast: "Подождите пару секунд.",
+    quota: "Лимит на сегодня исчерпан — возвращайтесь завтра.",
+    global_budget: "Сервис на сегодня перегружен. Попробуйте завтра.",
+    disabled: "Временно недоступно.",
+    scan_consent_required: "Сначала разрешите распознавание.",
+    not_certificate: "Не похоже на грамоту или сертификат. Сфотографируйте документ целиком, при хорошем свете.",
+    unreadable: "Не удалось прочитать название. Попробуйте сфотографировать ближе.",
+    bad_image: "Нужна фотография до 2 МБ.",
+    too_large: "Фото слишком большое.",
+    goal_limit: "Можно вести до 5 целей. Удалите одну, чтобы добавить новую.",
+    bad_goal: "Опишите цель хотя бы в нескольких словах.",
+  } as Record<string, string>,
+  filters: {
+    names: {} as Record<string, string>,
+    values: {} as Record<string, string>,
   },
   error: ruError,
 }

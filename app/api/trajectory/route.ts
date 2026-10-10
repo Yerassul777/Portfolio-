@@ -1,5 +1,6 @@
 import { checkAiAccess, describeProfile, safetyIdentifier } from "@/lib/ai-access"
 import { searchCatalogue } from "@/lib/catalogue"
+import { DEFAULT_LOCALE, isEnabledLocale, type Locale } from "@/lib/i18n/config"
 import { isDeadlinePassed, todayInAlmaty } from "@/lib/deadline"
 import { createPublicClient } from "@/lib/supabase-server"
 import { CATEGORY_LABELS, getFilterLabel, FILTER_CONFIGS, type Opportunity } from "@/lib/types"
@@ -34,12 +35,13 @@ export async function POST(req: Request) {
   if (!access.ok) return access.response
   const { supabase, userId, profile } = access
 
-  let body: { goal?: unknown; targetMonth?: unknown; goalId?: unknown }
+  let body: { goal?: unknown; targetMonth?: unknown; goalId?: unknown; locale?: unknown }
   try {
     body = await req.json()
   } catch {
     return json({ error: "Invalid request", code: "bad_request" }, 400)
   }
+  const locale: Locale = typeof body.locale === "string" && isEnabledLocale(body.locale) ? body.locale : DEFAULT_LOCALE
   const goal = typeof body.goal === "string" ? body.goal.replace(/\s+/g, " ").trim().slice(0, 200) : ""
   if (goal.length < 3) return json({ error: "Опишите цель хотя бы в нескольких словах.", code: "bad_goal" }, 400)
   const today = todayInAlmaty()
@@ -74,7 +76,7 @@ export async function POST(req: Request) {
   const pub = createPublicClient()
   const [{ data: entryRows }, open] = await Promise.all([
     supabase.from("portfolio_entries").select("status, kind, title, result, event_date").order("event_date", { ascending: false, nullsFirst: false }).limit(40),
-    pub ? searchCatalogue(pub, { onlyOpen: true, sort: "deadline", limit: 60 }).catch(() => [] as Opportunity[]) : Promise.resolve([] as Opportunity[]),
+    pub ? searchCatalogue(pub, { locale, onlyOpen: true, sort: "deadline", limit: 60 }).catch(() => [] as Opportunity[]) : Promise.resolve([] as Opportunity[]),
   ])
   const candidates: PlanCandidate[] = open
     .filter((opp) => !opp.deadline || !isDeadlinePassed(opp.deadline))
@@ -96,6 +98,7 @@ export async function POST(req: Request) {
     profile: describeProfile(profile),
     entries,
     candidates,
+    language: locale,
   })
   if (plan.usage) {
     const { error } = await supabase.rpc("record_ai_usage", {

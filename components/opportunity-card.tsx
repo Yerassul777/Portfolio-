@@ -7,7 +7,8 @@ import { FavoriteButton } from "@/components/favorite-button"
 import { useI18n } from "@/components/i18n-provider"
 import { daysUntil } from "@/lib/deadline"
 import { opportunityPath } from "@/lib/site"
-import { getFilterLabel, type Opportunity } from "@/lib/types"
+import { filterValue } from "@/lib/i18n/filters"
+import type { Opportunity } from "@/lib/types"
 
 interface OpportunityCardProps {
   opportunity: Opportunity
@@ -23,8 +24,8 @@ interface OpportunityCardProps {
 export function OpportunityCard({ opportunity, onOpen, priority = false }: OpportunityCardProps) {
   const { locale, t } = useI18n()
   const { kind, image_url: image } = opportunity
-  const city = opportunity.city ? getFilterLabel(kind, "city", opportunity.city) : null
-  const mode = opportunity.format ? getFilterLabel(kind, "format", opportunity.format) : null
+  const city = opportunity.city ? filterValue(t, kind, "city", opportunity.city) : null
+  const mode = opportunity.format ? filterValue(t, kind, "format", opportunity.format) : null
   const days = opportunity.deadline ? daysUntil(opportunity.deadline) : null
 
   const grant = opportunity.grant_available && (

@@ -20,6 +20,7 @@ import { loadSupabase } from "@/lib/supabase-browser"
 import { useChat, type ChatMessage } from "@/lib/chat"
 import { useNotesData } from "@/lib/notes"
 import { ageOn, shownName, todayInKazakhstan, useProfile } from "@/lib/profile"
+import { formatDate } from "@/lib/deadline"
 import { AI_MIN_AGE } from "@/lib/policy"
 import type { Locale } from "@/lib/i18n/config"
 import type { Dictionary } from "@/lib/i18n"
@@ -92,12 +93,7 @@ function dayLabel(timestamp: string, locale: Locale, t: Dictionary): string {
   const today = todayInKazakhstan()
   if (day === today) return t.ai.today
   if (day === dayKey(new Date(Date.now() - 86_400_000).toISOString())) return t.ai.yesterday
-  return new Date(timestamp).toLocaleDateString(HTML_LANG[locale], {
-    day: "numeric",
-    month: "long",
-    ...(day.slice(0, 4) !== today.slice(0, 4) ? { year: "numeric" } : {}),
-    timeZone: ZONE,
-  })
+  return formatDate(day, HTML_LANG[locale], { year: day.slice(0, 4) !== today.slice(0, 4) })
 }
 
 /** Distance from the bottom, in px, that still counts as "at the latest message". */
@@ -277,6 +273,7 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
         body: JSON.stringify({
           messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
           notesContext,
+          locale,
         }),
       })
 
@@ -286,7 +283,7 @@ export function AIAssistantPanel({ open, onOpenChange, onLeave, returnFocusRef, 
         if (errorData.code === "auth_required") {
           throw new Error(t.ai.sessionExpired)
         }
-        throw new Error(errorData.error || t.ai.failed)
+        throw new Error((errorData.code && t.apiErrors[errorData.code]) || errorData.error || t.ai.failed)
       }
 
       const data = await response.json()

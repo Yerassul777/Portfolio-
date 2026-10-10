@@ -84,6 +84,8 @@ export function usePush() {
         p_endpoint: subscription.endpoint,
         p_p256dh: json.keys?.p256dh ?? "",
         p_auth: json.keys?.auth ?? "",
+        // Reminders arrive in the language the user turned them on in.
+        p_locale: document.documentElement.lang === "kk" ? "kz" : document.documentElement.lang === "en" ? "en" : "ru",
       })
       if (error) {
         await subscription.unsubscribe()

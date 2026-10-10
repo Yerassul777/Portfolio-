@@ -154,15 +154,15 @@ export function ConsentFields({
 
 /** The privacy policy in a window over the current screen; `onAccept` adds an "I agree" button. */
 export function PolicyDialog({ open, onOpenChange, onAccept }: { open: boolean; onOpenChange: (open: boolean) => void; onAccept?: () => void }) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85svh] w-[calc(100%-2rem)] max-w-2xl flex-col gap-0 overflow-hidden border-gray-800 bg-[#0d1210] p-0">
+      <DialogContent closeLabel={t.details.close} className="flex max-h-[85svh] w-[calc(100%-2rem)] max-w-2xl flex-col gap-0 overflow-hidden border-gray-800 bg-[#0d1210] p-0">
         <DialogHeader className="shrink-0 border-b border-gray-800 px-5 py-4 text-left">
           <DialogTitle className="pr-8 text-white">{t.consent.policy}</DialogTitle>
           <DialogDescription className="text-xs text-gray-400">{t.consent.policyHint}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">{open && <PolicyText />}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">{open && <PolicyText locale={locale} />}</div>
         {onAccept && (
           <div className="shrink-0 border-t border-gray-800 p-3">
             <Button className="h-11 w-full rounded-xl" onClick={onAccept}>

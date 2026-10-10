@@ -32,6 +32,11 @@ export interface Opportunity {
   // Found by the nightly search (Phase 6): the page it came from, and when a person checked it.
   source_url?: string | null
   reviewed_at?: string | null
+  // Kazakh and English text, when the row has it (lib/catalogue.ts localizes).
+  title_kk?: string | null
+  title_en?: string | null
+  description_kk?: string | null
+  description_en?: string | null
 }
 
 // Active filters: filter key -> selected values.

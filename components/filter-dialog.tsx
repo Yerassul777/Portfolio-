@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { useI18n } from "@/components/i18n-provider"
 import { activeFilterCount } from "@/lib/catalogue"
 import { format } from "@/lib/i18n/format"
-import { getFilterLabel, type Category, type Filters } from "@/lib/types"
+import { filterValue } from "@/lib/i18n/filters"
+import type { Category, Filters } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const loadSheet = () => import("@/components/filter-sheet")
@@ -97,7 +98,7 @@ export function FilterDialog({ category, filters, onFiltersChange, children, hid
       {badges.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {badges.map(({ key, value }) => {
-            const label = getFilterLabel(category, key, value)
+            const label = filterValue(t, category, key, value)
             return (
               <li
                 key={`${key}-${value}`}

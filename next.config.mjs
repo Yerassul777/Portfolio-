@@ -73,9 +73,15 @@ const nextConfig = {
     "/api/portfolio/pdf": ["./assets/fonts/**"],
   },
   async redirects() {
-    // Temporary (307): "/" may pick a language from the browser once there is
-    // more than one. Query strings are kept, so old shared links still work.
+    // Temporary (307), because "/" depends on the visitor: the language they
+    // chose before (cookie set by the switcher), else Kazakh for a browser
+    // set to Kazakh, else Russian. Query strings are kept.
+    const chosen = (locale) => ({ source: "/", has: [{ type: "cookie", key: "locale", value: locale }], destination: `/${locale}`, permanent: false })
     return [
+      chosen("kz"),
+      chosen("en"),
+      chosen("ru"),
+      { source: "/", has: [{ type: "header", key: "accept-language", value: "(kk|kz).*" }], destination: "/kz", permanent: false },
       { source: "/", destination: "/ru", permanent: false },
       { source: "/admin", destination: "/ru/admin", permanent: false },
     ]

@@ -66,11 +66,11 @@ export function ParticipateButton({ opportunity }: { opportunity: Opportunity })
 
 /** An .ics file with the deadline and two alerts; opens the calendar app on phones. */
 export function CalendarLink({ opportunity }: { opportunity: Opportunity }) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   if (!opportunity.deadline || isDeadlinePassed(opportunity.deadline)) return null
   return (
     <a
-      href={`/api/ics/${encodeURIComponent(opportunity.slug)}`}
+      href={`/api/ics/${encodeURIComponent(opportunity.slug)}${locale === "ru" ? "" : `?lang=${locale}`}`}
       className={cn(actionClass, "border-gray-700 text-gray-300 hover:bg-gray-800")}
     >
       <CalendarPlus aria-hidden="true" className="h-4 w-4" />

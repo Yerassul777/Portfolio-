@@ -16,9 +16,10 @@ export type SearchWord = { t: string; f?: Record<string, string[]> }
  * the title or description — or a filter value whose human label contains it,
  * so "Алматы" finds cards stored as city=almaty and "грант" finds
  * grant_available=true. Labels live here, in FILTER_CONFIGS; the database
- * only ever compares codes.
+ * only ever compares codes. `labels` adds a language's own labels (a
+ * dictionary's filters.values), so "Almaty" and "Алматы" work too.
  */
-export function buildSearchWords(query: string, category: Category): SearchWord[] {
+export function buildSearchWords(query: string, category: Category, labels: Record<string, string> = {}): SearchWord[] {
   const words = normalize(query.slice(0, MAX_QUERY_LENGTH))
     .split(/\s+/)
     .filter(Boolean)
@@ -27,7 +28,10 @@ export function buildSearchWords(query: string, category: Category): SearchWord[
   return [...new Set(words)].slice(0, MAX_SEARCH_WORDS).map((word) => {
     const matches: Record<string, string[]> = {}
     for (const config of FILTER_CONFIGS[category]) {
-      const values = config.options.filter((o) => normalize(o.label).includes(word)).map((o) => o.value)
+      const key = config.key as string
+      const values = config.options
+        .filter((o) => [o.label, labels[`${category}.${key}.${o.value}`], labels[`${key}.${o.value}`]].some((label) => label && normalize(label).includes(word)))
+        .map((o) => o.value)
       if (values.length > 0) matches[config.key as string] = values
     }
     return Object.keys(matches).length > 0 ? { t: word, f: matches } : { t: word }

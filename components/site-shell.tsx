@@ -4,6 +4,7 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import { HeaderTools } from "@/components/header-tools"
 import { InstallAppButton } from "@/components/install-app"
+import { LanguageSwitcher } from "@/components/language-switcher"
 import { useI18n } from "@/components/i18n-provider"
 import { format } from "@/lib/i18n/format"
 
@@ -81,6 +82,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
+            <LanguageSwitcher />
             <HeaderTools />
           </div>
         </div>

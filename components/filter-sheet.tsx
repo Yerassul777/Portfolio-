@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useI18n } from "@/components/i18n-provider"
 import { FILTER_CONFIGS, type Category, type Filters } from "@/lib/types"
+import { filterName, filterValue } from "@/lib/i18n/filters"
 import { cn } from "@/lib/utils"
 
 const ICONS: Record<string, ReactNode> = {
@@ -80,7 +81,7 @@ export function FilterSheet({ open, onOpenChange, category, filters, count, onTo
               <fieldset key={key} className="space-y-3">
                 <legend className="mb-3 flex w-full items-center gap-2 border-b pb-2 text-lg font-semibold">
                   {config.icon && ICONS[config.icon]}
-                  {config.label}
+                  {filterName(t, category, key)}
                 </legend>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {config.options.map((option) => {
@@ -107,7 +108,7 @@ export function FilterSheet({ open, onOpenChange, category, filters, count, onTo
                         >
                           {selected && <Check className="h-3.5 w-3.5 text-primary" strokeWidth={3} />}
                         </span>
-                        <span className="text-sm font-medium">{option.label}</span>
+                        <span className="text-sm font-medium">{filterValue(t, category, key, option.value)}</span>
                       </button>
                     )
                   })}

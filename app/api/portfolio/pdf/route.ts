@@ -1,7 +1,7 @@
 import { getDictionary } from "@/lib/i18n"
-import { DEFAULT_LOCALE, HTML_LANG } from "@/lib/i18n/config"
+import { DEFAULT_LOCALE, HTML_LANG, isEnabledLocale, type Locale } from "@/lib/i18n/config"
 import { format } from "@/lib/i18n/format"
-import { formatDeadline } from "@/lib/deadline"
+import { formatDeadline, todayInAlmaty } from "@/lib/deadline"
 import { renderPortfolioPdf, type PdfEntry } from "@/lib/portfolio-pdf"
 import { createUserClient } from "@/lib/supabase-server"
 
@@ -30,9 +30,11 @@ export async function POST(request: Request) {
   if (!client) return Response.json({ error: "auth required" }, { status: 401 })
 
   let name = ""
+  let locale: Locale = DEFAULT_LOCALE
   try {
-    const body = (await request.json()) as { name?: unknown }
+    const body = (await request.json()) as { name?: unknown; locale?: unknown }
     name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : ""
+    if (typeof body.locale === "string" && isEnabledLocale(body.locale)) locale = body.locale
   } catch {
     return Response.json({ error: "invalid request" }, { status: 400 })
   }
@@ -46,8 +48,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "auth required" }, { status: error.code === "PGRST301" ? 401 : 500 })
   }
 
-  const t = getDictionary(DEFAULT_LOCALE)
-  const lang = HTML_LANG[DEFAULT_LOCALE]
+  const t = getDictionary(locale)
+  const lang = HTML_LANG[locale]
   const entries: PdfEntry[] = (data as Row[]).map((row) => ({
     title: row.title,
     kind: t.portfolio.kinds[row.kind] ?? "",
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
     description: row.description,
   }))
 
-  const today = new Date().toLocaleDateString(lang, { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Almaty" })
+  const today = formatDeadline(todayInAlmaty(), "long", lang)
   const pdf = await renderPortfolioPdf(name, entries, {
     heading: t.print.heading,
     completed: t.portfolio.sectionCompleted,

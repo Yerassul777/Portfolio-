@@ -1,7 +1,8 @@
 "use client"
 
 import { useI18n } from "@/components/i18n-provider"
-import { QUICK_FILTERS, getFilterLabel, type Category, type Filters } from "@/lib/types"
+import { filterValue } from "@/lib/i18n/filters"
+import { QUICK_FILTERS, type Category, type Filters } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 interface QuickFiltersProps {
@@ -42,7 +43,7 @@ export function QuickFilters({ category, filters, onFiltersChange }: QuickFilter
                 : "border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground"
             )}
           >
-            {getFilterLabel(category, key, value)}
+            {filterValue(t, category, key, value)}
           </button>
         )
       })}

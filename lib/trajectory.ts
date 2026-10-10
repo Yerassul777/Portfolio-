@@ -3,7 +3,9 @@
 import { useCallback } from "react"
 import useSWR from "swr"
 import { getAccessToken, useAuth } from "@/components/auth-provider"
-import { OPPORTUNITY_COLUMNS } from "@/lib/catalogue"
+import { useI18n } from "@/components/i18n-provider"
+import { localizeOpportunity, opportunityColumns } from "@/lib/catalogue"
+import type { Locale } from "@/lib/i18n/config"
 import { loadSupabase } from "@/lib/supabase-browser"
 import type { Category, Opportunity } from "@/lib/types"
 
@@ -54,11 +56,11 @@ type StepRow = {
 }
 type GoalRow = { id: string; title: string; target_month: string | null; summary: string; created_at: string; goal_steps: StepRow[] }
 
-async function fetchGoals(): Promise<Goal[]> {
+async function fetchGoals([, , locale]: readonly [string, string, Locale]): Promise<Goal[]> {
   const { data, error } = await (await loadSupabase())
     .from("goals")
     .select(
-      `id, title, target_month, summary, created_at, goal_steps(id, position, kind, title, detail, due_month, search_query, search_kind, done, opportunity:opportunities(${OPPORTUNITY_COLUMNS}))`
+      `id, title, target_month, summary, created_at, goal_steps(id, position, kind, title, detail, due_month, search_query, search_kind, done, opportunity:opportunities(${opportunityColumns(locale)}))`
     )
     .order("created_at", { ascending: false })
   if (error) throw error
@@ -77,7 +79,7 @@ async function fetchGoals(): Promise<Goal[]> {
         title: s.title,
         detail: s.detail,
         dueMonth: s.due_month,
-        opportunity: s.opportunity,
+        opportunity: s.opportunity && localizeOpportunity(s.opportunity, locale),
         searchQuery: s.search_query,
         searchKind: s.search_kind,
         done: s.done,
@@ -89,7 +91,8 @@ export type BuildOutcome = { ok: true; goalId: string } | { ok: false; message: 
 
 export function useGoals(active: boolean) {
   const { user } = useAuth()
-  const key = active && user ? (["goals", user.id] as const) : null
+  const { locale } = useI18n()
+  const key = active && user ? (["goals", user.id, locale] as const) : null
   const { data, error, mutate } = useSWR(key, fetchGoals, { revalidateOnFocus: false, dedupingInterval: 10_000 })
 
   const build = useCallback(
@@ -99,14 +102,14 @@ export function useGoals(active: boolean) {
       const response = await fetch("/api/trajectory", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, locale }),
       }).catch(() => null)
       const body = response ? await response.json().catch(() => ({})) : {}
       if (!response?.ok) return { ok: false, code: body.code ?? "failed", message: body.error ?? "" }
       await mutate()
       return { ok: true, goalId: body.goalId }
     },
-    [mutate]
+    [mutate, locale]
   )
 
   const toggleStep = useCallback(

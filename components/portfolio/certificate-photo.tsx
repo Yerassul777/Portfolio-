@@ -54,7 +54,7 @@ export function CertificateField({
     setStatus({ kind: "scanning" })
     const outcome = await scanPhoto(blob).catch(() => null)
     if (!outcome) return setStatus({ kind: "error", message: t.certificates.failed })
-    if (!outcome.ok) return setStatus({ kind: "error", message: outcome.message || t.certificates.failed })
+    if (!outcome.ok) return setStatus({ kind: "error", message: t.apiErrors[outcome.code] || outcome.message || t.certificates.failed })
     onScanned(outcome.fields)
     setStatus({ kind: "scanned", left: outcome.quota ? Math.max(0, outcome.quota.limit - outcome.quota.used) : null })
   }
@@ -227,7 +227,7 @@ export function CertificateThumb({ url, title }: { url: string | undefined; titl
         <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-3xl border-gray-800 bg-[#0d1210] p-3">
+        <DialogContent closeLabel={t.details.close} className="w-[calc(100%-2rem)] max-w-3xl border-gray-800 bg-[#0d1210] p-3">
           <DialogTitle className="pr-8 text-sm text-white">{title}</DialogTitle>
           <DialogDescription className="sr-only">{t.certificates.photoAlt}</DialogDescription>
           {/* eslint-disable-next-line @next/next/no-img-element -- a private, signed URL */}

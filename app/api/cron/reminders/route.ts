@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto"
 import webpush from "web-push"
 import { getDictionary } from "@/lib/i18n"
-import { DEFAULT_LOCALE } from "@/lib/i18n/config"
+import { DEFAULT_LOCALE, HTML_LANG, isEnabledLocale, type Locale } from "@/lib/i18n/config"
 import { plural } from "@/lib/i18n/format"
 import { formatDeadline } from "@/lib/deadline"
 import { opportunityPath } from "@/lib/site"
@@ -25,6 +25,8 @@ type Due = {
   deadline: string
   days_left: number
   kind: "d7" | "d1"
+  /** The language the reminders were turned on in. */
+  locale: string | null
 }
 
 function authorized(request: Request, secret: string): boolean {
@@ -55,7 +57,6 @@ export async function GET(request: Request) {
 
   // The contact push services may use about this sender: the site, not a person.
   webpush.setVapidDetails(process.env.VAPID_SUBJECT || "https://kazakhstanportfolio.vercel.app", publicKey, privateKey)
-  const t = getDictionary(DEFAULT_LOCALE)
   const due = (data ?? []) as Due[]
   let sent = 0
   let failed = 0
@@ -67,16 +68,18 @@ export async function GET(request: Request) {
     await Promise.all(
       due.slice(i, i + 20).map(async (row) => {
         // Only public catalogue data: the notification shows on a lock screen.
+        const locale: Locale = row.locale && isEnabledLocale(row.locale) ? row.locale : DEFAULT_LOCALE
+        const t = getDictionary(locale)
         const title =
           row.days_left <= 0
             ? t.card.lastDay
             : row.kind === "d1"
               ? t.reminders.calendarDay
-              : plural(DEFAULT_LOCALE, row.days_left, t.card.daysLeft)
+              : plural(locale, row.days_left, t.card.daysLeft)
         const payload = JSON.stringify({
           title,
-          body: `${row.opportunity_title} — ${formatDeadline(row.deadline, "long", "ru")}`,
-          url: opportunityPath(DEFAULT_LOCALE, row.opportunity_slug),
+          body: `${row.opportunity_title} — ${formatDeadline(row.deadline, "long", HTML_LANG[locale])}`,
+          url: opportunityPath(locale, row.opportunity_slug),
           tag: `deadline-${row.opportunity_slug}-${row.kind}`,
         })
         try {

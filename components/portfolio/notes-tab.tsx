@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { AuthForm } from "@/components/auth-form"
 import { useAuth } from "@/components/auth-provider"
 import { useI18n } from "@/components/i18n-provider"
+import { formatDeadline } from "@/lib/deadline"
 import { HTML_LANG } from "@/lib/i18n/config"
 import { format, plural } from "@/lib/i18n/format"
 import { NOTE_CONTENT_MAX, NOTE_TITLE_MAX, useNotesData, type Note } from "@/lib/notes"
@@ -336,7 +337,7 @@ export function NotesTab({ active }: { active: boolean }) {
                               {t.notes.categories[note.category] ?? t.notes.categories.other}
                             </span>
                             <time dateTime={note.updatedAt} className="text-xs text-gray-400">
-                              {new Date(note.updatedAt).toLocaleDateString(HTML_LANG[locale])}
+                              {formatDeadline(new Date(note.updatedAt).toLocaleDateString("sv-SE", { timeZone: "Asia/Almaty" }), "short", HTML_LANG[locale])}
                             </time>
                           </div>
                         </>

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { FavoriteButton } from "@/components/favorite-button"
 import { useI18n } from "@/components/i18n-provider"
 import { catalogueHref } from "@/lib/catalogue"
+import { formatDate } from "@/lib/deadline"
 import { HTML_LANG, type Locale } from "@/lib/i18n/config"
 import { format } from "@/lib/i18n/format"
 import { todayInKazakhstan } from "@/lib/profile"
@@ -27,7 +28,7 @@ const KIND_STYLE: Record<StepKind, string> = {
 }
 
 function monthLabel(month: string, locale: Locale): string {
-  const text = new Date(`${month.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString(HTML_LANG[locale], { month: "long", year: "numeric", timeZone: "UTC" })
+  const text = formatDate(`${month.slice(0, 7)}-01`, HTML_LANG[locale], { day: false })
   const clean = text.replace(/\s*г\.$/, "")
   return clean.charAt(0).toUpperCase() + clean.slice(1)
 }
@@ -150,7 +151,7 @@ function GoalForm({
         const outcome = await build({ goal: goal.trim(), targetMonth: target || null })
         setBusy(false)
         if (outcome.ok) onBuilt(outcome.goalId)
-        else setError(outcome.message || t.trajectory.failed)
+        else setError(t.apiErrors[outcome.code] || outcome.message || t.trajectory.failed)
       }}
       className="space-y-4 rounded-2xl border border-emerald-500/15 bg-gradient-to-br from-[#10201a] to-[#0d1210] p-5"
     >
@@ -376,7 +377,7 @@ function GoalView({
             setError(null)
             const outcome = await data.build({ goal: goal.title, targetMonth: goal.targetMonth?.slice(0, 7) ?? null, goalId: goal.id })
             setBusy(null)
-            if (!outcome.ok) setError(outcome.message || t.trajectory.failed)
+            if (!outcome.ok) setError(t.apiErrors[outcome.code] || outcome.message || t.trajectory.failed)
           }}
         >
           {busy === "rebuild" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

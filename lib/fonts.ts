@@ -6,7 +6,8 @@ import { Geist } from "next/font/google"
 // a font that is not there by first paint is not swapped in for that page
 // view; it is in the HTTP and service-worker caches for every view after.
 const geistSans = Geist({
-  subsets: ["latin", "cyrillic"],
+  // cyrillic-ext: the Kazakh letters (ә ғ қ ң ө ұ ү һ і).
+  subsets: ["latin", "cyrillic", "cyrillic-ext"],
   variable: "--font-geist-sans",
   display: "optional",
 })

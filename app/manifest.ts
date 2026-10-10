@@ -12,7 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: t.meta.siteName,
     description: t.meta.description,
     lang: HTML_LANG[DEFAULT_LOCALE],
-    start_url: `/${DEFAULT_LOCALE}`,
+    // "/" goes to the language the user chose (next.config.mjs redirects).
+    start_url: "/",
     scope: "/",
     // On a desktop the app draws its own title bar (app-shell.tsx), so the
     // window has no browser-looking bar with the address; elsewhere, standalone.

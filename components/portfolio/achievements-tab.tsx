@@ -376,7 +376,7 @@ function EntryForm({
  * installed iPhone app). The name is typed here, sent once, never stored.
  */
 function ExportButton() {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [busy, setBusy] = useState(false)
@@ -390,7 +390,7 @@ function ExportButton() {
       const response = await fetch("/api/portfolio/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: name.trim().slice(0, 80) }),
+        body: JSON.stringify({ name: name.trim().slice(0, 80), locale }),
       })
       if (!response.ok) throw new Error(String(response.status))
       const file = new File([await response.blob()], "portfolio.pdf", { type: "application/pdf" })

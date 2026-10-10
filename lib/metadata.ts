@@ -1,11 +1,21 @@
 import type { Metadata } from "next"
 import type { Locale } from "@/lib/i18n/config"
-import { OG_LOCALE } from "@/lib/i18n/config"
+import { ENABLED_LOCALES, HTML_LANG, OG_LOCALE } from "@/lib/i18n/config"
 import { getDictionary } from "@/lib/i18n"
 import { opportunityPath } from "@/lib/site"
 import type { Opportunity } from "@/lib/types"
 
 const DESCRIPTION_LENGTH = 160
+
+/**
+ * Canonical URL plus the same page in every language (hreflang), so search
+ * engines show Kazakh readers the Kazakh page. `pathFor` builds a path for a locale.
+ */
+export function localeAlternates(locale: Locale, pathFor: (locale: Locale) => string): NonNullable<Metadata["alternates"]> {
+  const languages: Record<string, string> = Object.fromEntries(ENABLED_LOCALES.map((l) => [HTML_LANG[l], pathFor(l)]))
+  languages["x-default"] = pathFor("ru")
+  return { canonical: pathFor(locale), languages }
+}
 
 export function excerpt(text: string, length = DESCRIPTION_LENGTH): string {
   const flat = text.replace(/\s+/g, " ").trim()
@@ -22,7 +32,7 @@ export function opportunityMetadata(locale: Locale, opportunity: Opportunity): M
   return {
     title: opportunity.title,
     description,
-    alternates: { canonical: path },
+    alternates: localeAlternates(locale, (l) => opportunityPath(l, opportunity.slug)),
     openGraph: {
       type: "article",
       url: path,

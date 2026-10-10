@@ -3,7 +3,9 @@
 import { useCallback, useMemo } from "react"
 import useSWR from "swr"
 import { useAuth } from "@/components/auth-provider"
-import { OPPORTUNITY_COLUMNS } from "@/lib/catalogue"
+import { useI18n } from "@/components/i18n-provider"
+import { localizeOpportunity, opportunityColumns } from "@/lib/catalogue"
+import type { Locale } from "@/lib/i18n/config"
 import { loadSupabase } from "@/lib/supabase-browser"
 import type { Opportunity } from "@/lib/types"
 
@@ -16,18 +18,18 @@ export interface Favorite {
 
 type FavoriteRow = { opportunity_id: string; created_at: string; opportunity: Opportunity | null }
 
-async function fetchFavorites(): Promise<Favorite[]> {
+async function fetchFavorites([, , locale]: readonly [string, string, Locale]): Promise<Favorite[]> {
   const supabase = await loadSupabase()
   const { data, error } = await supabase
     .from("favorites")
-    .select(`opportunity_id, created_at, opportunity:opportunities(${OPPORTUNITY_COLUMNS})`)
+    .select(`opportunity_id, created_at, opportunity:opportunities(${opportunityColumns(locale)})`)
     .order("created_at", { ascending: false })
     .limit(500)
   if (error) throw error
   return (data as unknown as FavoriteRow[]).map((row) => ({
     opportunityId: row.opportunity_id,
     createdAt: row.created_at,
-    opportunity: row.opportunity,
+    opportunity: row.opportunity && localizeOpportunity(row.opportunity, locale),
   }))
 }
 
@@ -37,8 +39,9 @@ async function fetchFavorites(): Promise<Favorite[]> {
  */
 export function useFavorites() {
   const { user, loading } = useAuth()
+  const { locale } = useI18n()
   const userId = user?.id ?? null
-  const key = userId ? (["favorites", userId] as const) : null
+  const key = userId ? (["favorites", userId, locale] as const) : null
   const { data, error, mutate } = useSWR(key, fetchFavorites, { revalidateOnFocus: true, dedupingInterval: 10_000 })
   const ids = useMemo(() => new Set((data ?? []).map((f) => f.opportunityId)), [data])
 

@@ -23,14 +23,14 @@ export const revalidate = 60
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params
   if (!isEnabledLocale(locale)) return {}
-  const opportunity = await getOpportunity(slug)
+  const opportunity = await getOpportunity(slug, locale)
   return opportunity ? opportunityMetadata(locale, opportunity) : {}
 }
 
 export default async function OpportunityPage({ params }: Props) {
   const { locale, slug } = await params
   if (!isEnabledLocale(locale)) notFound()
-  const opportunity = await getOpportunity(slug)
+  const opportunity = await getOpportunity(slug, locale)
   if (!opportunity) notFound()
 
   const t = getDictionary(locale)

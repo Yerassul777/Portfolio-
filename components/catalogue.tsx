@@ -114,12 +114,12 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
   }, [draft, query.q, commitSearch])
 
   // --- data -------------------------------------------------------------------
-  const key = catalogueKey(query)
-  const [initialKey] = useState(() => catalogueKey(initialQuery))
+  const key = catalogueKey(query, locale)
+  const [initialKey] = useState(() => catalogueKey(initialQuery, locale))
   const hasInitial = key === initialKey && initialPage !== null
   const { data, error, isValidating, mutate } = useSWR(
     ["catalogue", key],
-    async () => fetchCataloguePage(await loadSupabase(), query),
+    async () => fetchCataloguePage(await loadSupabase(), query, locale, t.filters.values),
     {
       fallbackData: hasInitial ? initialPage : undefined,
       revalidateOnMount: !hasInitial,
@@ -137,7 +137,7 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
   const lookElsewhere = !!data && data.total === 0 && query.q !== ""
   const { data: elsewhere } = useSWR(
     lookElsewhere ? ["elsewhere", query.q, query.showPast] : null,
-    async ([, q, showPast]) => countByCategory(await loadSupabase(), q, !showPast),
+    async ([, q, showPast]) => countByCategory(await loadSupabase(), q, !showPast, t.filters.values),
     { revalidateOnFocus: false, dedupingInterval: 30_000 }
   )
   const elsewhereCategories = elsewhere ? CATEGORIES.filter((c) => c !== category && elsewhere[c] > 0) : []
@@ -146,8 +146,8 @@ export function Catalogue({ initialQuery, initialPage, initialOpen }: CatalogueP
   const listed = query.open ? data?.items.find((item) => item.slug === query.open) : undefined
   const [initialOpenItem] = useState(initialOpen)
   const { data: fetchedOpen } = useSWR(
-    query.open && !listed ? ["opportunity", query.open] : null,
-    async ([, slug]) => fetchOpportunityBySlug(await loadSupabase(), slug),
+    query.open && !listed ? ["opportunity", query.open, locale] : null,
+    async ([, slug]) => fetchOpportunityBySlug(await loadSupabase(), slug, locale),
     {
       fallbackData: initialOpenItem && initialOpenItem.slug === query.open ? initialOpenItem : undefined,
       revalidateOnFocus: false,

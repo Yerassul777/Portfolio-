@@ -11,6 +11,7 @@ import { PolicyDialog } from "@/components/consent"
 import { useI18n } from "@/components/i18n-provider"
 import { AVATAR_GRADIENTS, UserAvatar } from "@/components/user-avatar"
 import { useConsents } from "@/lib/consent"
+import { formatDeadline } from "@/lib/deadline"
 import { HTML_LANG } from "@/lib/i18n/config"
 import { format, plural } from "@/lib/i18n/format"
 import {
@@ -196,7 +197,7 @@ function ProfileForm({ profile, save }: { profile: Profile; save: ReturnType<typ
         <p className="rounded-xl border border-gray-800 px-4 py-3 text-sm text-gray-300">
           {t.account.birthDate}:{" "}
           <span className="text-white">
-            {new Date(`${profile.birthDate}T00:00:00Z`).toLocaleDateString(HTML_LANG[locale], { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
+            {formatDeadline(profile.birthDate, "long", HTML_LANG[locale])}
           </span>{" "}
           <span className="text-gray-400">({plural(locale, age, t.account.years)})</span>
           <span className="mt-1 block text-xs text-gray-500">{t.account.birthDateLocked}</span>
