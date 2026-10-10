@@ -42,7 +42,7 @@ export function DeadlineStrip({ items }: { items: Opportunity[] }) {
                   event.preventDefault()
                   window.history.pushState(null, "", catalogueHref(locale, { ...currentCatalogueQuery(), open: item.slug }))
                 }}
-                className="flex h-full flex-col gap-2 rounded-xl border border-emerald-500/15 bg-[#0d1a14]/70 p-4 transition-[transform,border-color] duration-200 hover:border-emerald-500/35 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                className="flex h-full flex-col gap-2 rounded-xl border border-emerald-500/15 bg-gradient-to-br from-[#10241b]/90 to-[#0b1511]/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-[0_18px_40px_-18px_rgba(16,185,129,0.55)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               >
                 <span className="text-xs text-emerald-300/80">{t.categories[item.kind].label}</span>
                 <span className="line-clamp-2 font-semibold leading-snug text-white">{item.title}</span>

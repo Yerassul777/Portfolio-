@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react"
+import { GraduationCap, HeartHandshake, Medal, Trophy } from "lucide-react"
 import { DeadlineStrip } from "@/components/deadline-strip"
 import { HeroSearch } from "@/components/hero-search"
 import type { Highlights } from "@/lib/catalogue"
@@ -7,6 +9,15 @@ import { plural } from "@/lib/i18n/format"
 
 // The counts are social proof only once they are big enough to impress.
 const STATS_MIN_TOTAL = 20
+
+// The four sections as floating 3D tiles around the heading (wide screens
+// only; globals.css "Home screen"). Positions in % of the hero.
+const TILES = [
+  { icon: Trophy, top: "16%", left: "7%", rx: "14deg", ry: "22deg", delay: "0s" },
+  { icon: Medal, top: "58%", left: "11%", rx: "-10deg", ry: "28deg", delay: "-2.5s" },
+  { icon: GraduationCap, top: "18%", right: "8%", rx: "12deg", ry: "-24deg", delay: "-1.2s" },
+  { icon: HeartHandshake, top: "60%", right: "12%", rx: "-14deg", ry: "-20deg", delay: "-4s" },
+]
 
 interface HeroSectionProps {
   locale: Locale
@@ -40,6 +51,24 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
           WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent)",
         }}
       />
+      {!compact && (
+        // Decoration behind the text: drifting lights, a 3D grid floor, floating tiles.
+        <div aria-hidden="true">
+          <div className="hero-aurora">
+            <i />
+            <i />
+            <i />
+          </div>
+          <div className="hero-floor">
+            <i />
+          </div>
+          {TILES.map(({ icon: Icon, top, left, right, rx, ry, delay }, index) => (
+            <span key={index} className="hero-tile" style={{ top, left, right, "--rx": rx, "--ry": ry, "--delay": delay } as CSSProperties}>
+              <Icon className="h-8 w-8" strokeWidth={1.75} />
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
         <div className={`mx-auto max-w-4xl text-center ${compact ? "space-y-5" : "space-y-6 sm:space-y-8"}`}>
@@ -52,7 +81,7 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
               <span className="text-white">{t.hero.titleLine1}</span>
               {/* Always two lines: their height must not depend on which font rendered them. */}
               <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent">
+              <span className={compact ? "bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent" : "text-sheen"}>
                 {t.hero.titleLine2}
               </span>
             </h1>

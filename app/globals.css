@@ -158,9 +158,6 @@
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
-[data-lite] #app-splash .splash-glow {
-  animation: none;
-}
 
 /* The heart's little pop when something is saved. */
 @keyframes heart-pop {
@@ -257,11 +254,16 @@ html {
 }
 
 /* --- Launch screen ---------------------------------------------------------
-   Shown on a cold start of the installed app (data-splash, set by the inline
-   script in the root layout) and taken away once the app is ready, so the
-   first thing seen is the logo, not the page assembling itself. It looks
-   like the iOS launch images, so on an iPhone the hand-over is invisible.
-   The 4 s animation is a safety net if the script that ends it never runs. */
+   The installed app's opening on a cold start (data-splash, set by the inline
+   script in the root layout). It starts exactly like the iOS launch image —
+   the flat logo, the name, "by Team KAYA" — so the hand-over is invisible,
+   then comes alive: the logo turns over as a 3D tile with depth, a sheen
+   runs across it, an orbit draws around it, the letters of the name flip in.
+   When the app is ready the logo flies into its place in the header and the
+   screen melts away (components/app-shell.tsx). Only transform and opacity
+   move, so it runs on the compositor; weak devices get the short version and
+   reduced motion a plain fade. The 5 s animation is a safety net if the
+   script that ends it never runs. */
 #app-splash {
   display: none;
 }
@@ -274,56 +276,214 @@ html {
   align-items: center;
   justify-content: center;
   background: #0a0f0d;
-  animation: splash-out 0.45s ease 4s forwards;
+  perspective: 900px;
+  animation: splash-out 0.45s ease 5s forwards;
 }
-[data-splash="done"] #app-splash {
-  animation: splash-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+#app-splash .splash-aura {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(16, 185, 129, 0.22), transparent 38%),
+    radial-gradient(circle at 30% 70%, rgba(5, 150, 105, 0.12), transparent 40%),
+    radial-gradient(circle at 72% 28%, rgba(52, 211, 153, 0.1), transparent 35%);
+  opacity: 0;
+  animation: splash-fade-in 0.9s ease 0.1s forwards, splash-aura 6s ease-in-out 0.1s infinite alternate;
+}
+#app-splash .splash-stage {
+  position: relative;
+  width: min(26vmin, 140px);
+  height: min(26vmin, 140px);
+  transform-style: preserve-3d;
 }
 #app-splash .splash-logo {
-  position: relative;
-  width: min(24vmin, 132px);
-  height: min(24vmin, 132px);
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: splash-turn 1.3s cubic-bezier(0.3, 0.7, 0.15, 1) 0.2s both;
 }
-#app-splash .splash-logo svg {
-  position: relative;
+#app-splash .splash-face,
+#app-splash .splash-depth i {
+  position: absolute;
+  inset: 0;
+  border-radius: 22%;
+}
+#app-splash .splash-face {
+  overflow: hidden;
+  transform: translateZ(1px);
+  backface-visibility: hidden;
+  filter: drop-shadow(0 14px 34px rgba(16, 185, 129, 0.35));
+}
+#app-splash .splash-face svg {
+  display: block;
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 12px 32px rgba(16, 185, 129, 0.35));
+}
+/* The tile's thickness: slabs behind the face. */
+#app-splash .splash-depth i {
+  background: linear-gradient(135deg, #059669, #065f46);
+  transform: translateZ(calc(var(--d) * -1.8px));
+}
+#app-splash .splash-depth i:last-child {
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+#app-splash .splash-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.55) 48%, transparent 66%);
+  transform: translateX(-120%);
+  animation: splash-sheen 0.85s ease-out 1.35s forwards;
 }
 #app-splash .splash-glow {
   position: absolute;
-  inset: -45%;
+  inset: -55%;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.32), transparent 62%);
-  animation: splash-breathe 1.8s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3), transparent 62%);
+  transform: translateZ(-30px);
+  animation: splash-breathe 2.2s ease-in-out infinite;
+}
+/* A ring lying around the tile, seen at an angle, with a dot running on it. */
+#app-splash .splash-orbit {
+  position: absolute;
+  inset: -42%;
+  transform: rotateX(74deg);
+  transform-style: preserve-3d;
+  opacity: 0;
+  animation: splash-fade-in 0.6s ease 0.75s forwards;
+}
+#app-splash .splash-orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.25);
+  animation: splash-orbit 3.2s linear 0.75s infinite;
+}
+#app-splash .splash-orbit-ring::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6ee7b7;
+  box-shadow: 0 0 14px 4px rgba(110, 231, 183, 0.6);
 }
 #app-splash .splash-name {
-  margin-top: min(6vmin, 32px);
+  margin-top: min(7vmin, 38px);
   color: #f0fdf4;
   font-weight: 700;
   font-size: min(7.5vmin, 40px);
   letter-spacing: -0.02em;
+  perspective: 400px;
+}
+#app-splash .splash-name span {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: splash-letter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) calc(0.55s + var(--i) * 0.045s) both;
 }
 #app-splash .splash-credit {
   position: absolute;
   bottom: calc(6vh + env(safe-area-inset-bottom));
-  color: rgba(209, 250, 229, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(209, 250, 229, 0.62);
   font-size: min(3.4vmin, 14px);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  opacity: 0.55;
+  animation: splash-credit 0.7s ease 1.05s forwards;
 }
-[data-splash="done"] #app-splash .splash-logo {
-  animation: splash-logo-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+#app-splash .splash-credit b {
+  color: #6ee7b7;
+  font-weight: 600;
+}
+#app-splash .splash-line {
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(110, 231, 183, 0.8));
+  transform: scaleX(0);
+  animation: splash-line 0.6s ease 1.15s forwards;
+}
+#app-splash .splash-line:last-child {
+  background: linear-gradient(270deg, transparent, rgba(110, 231, 183, 0.8));
+}
+/* Leaving: the logo flies to the header (script); the rest melts. */
+[data-splash="done"] #app-splash {
+  animation: none;
+  background-color: transparent;
+  transition: background-color 0.45s ease 0.1s;
+  pointer-events: none;
+}
+[data-splash="done"] #app-splash :is(.splash-name, .splash-credit, .splash-orbit, .splash-aura, .splash-glow) {
+  animation: splash-out 0.25s ease forwards;
+}
+/* Weak devices: the flat tile with its sheen, no turn, no orbit. */
+[data-lite] #app-splash :is(.splash-logo, .splash-glow, .splash-aura) {
+  animation: none;
+}
+[data-lite] #app-splash .splash-aura {
+  opacity: 1;
+}
+[data-lite] #app-splash .splash-orbit,
+[data-lite] #app-splash .splash-depth {
+  display: none;
+}
+@keyframes splash-turn {
+  0% {
+    transform: rotateY(0deg) rotateX(0deg) scale(1);
+  }
+  45% {
+    transform: rotateY(200deg) rotateX(16deg) scale(1.08);
+  }
+  80% {
+    transform: rotateY(352deg) rotateX(-4deg) scale(1.01);
+  }
+  100% {
+    transform: rotateY(360deg) rotateX(0deg) scale(1);
+  }
+}
+@keyframes splash-sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+@keyframes splash-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes splash-letter {
+  from {
+    opacity: 0;
+    transform: translateY(35%) rotateX(-85deg);
+  }
+}
+@keyframes splash-credit {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes splash-line {
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes splash-aura {
+  to {
+    transform: scale(1.12) rotate(8deg);
+  }
+}
+@keyframes splash-fade-in {
+  to {
+    opacity: 1;
+  }
 }
 @keyframes splash-breathe {
   50% {
-    transform: scale(1.12);
-    opacity: 0.7;
-  }
-}
-@keyframes splash-logo-out {
-  to {
-    transform: scale(1.18);
+    opacity: 0.6;
+    transform: translateZ(-30px) scale(1.12);
   }
 }
 @keyframes splash-out {
@@ -333,8 +493,146 @@ html {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #app-splash .splash-glow,
-  [data-splash="done"] #app-splash .splash-logo {
+  #app-splash *,
+  #app-splash *::after {
+    animation: none !important;
+  }
+  #app-splash :is(.splash-aura, .splash-orbit, .splash-credit) {
+    opacity: 1;
+  }
+  #app-splash .splash-line {
+    transform: none;
+  }
+}
+
+/* --- Home screen ----------------------------------------------------------
+   Decoration only, behind and around the hero's text (which never moves, so
+   the first paint is not held back): drifting aurora lights, a 3D grid floor
+   running towards the viewer, floating 3D tiles with the four sections on
+   wide screens, a sheen on the highlighted word. Compositor-only motion;
+   static on weak devices and with reduced motion. */
+.hero-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.hero-aurora i {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  opacity: 0.9;
+  animation: aurora-drift 22s ease-in-out infinite alternate;
+}
+.hero-aurora i:nth-child(1) {
+  top: -38vmax;
+  right: -22vmax;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16), transparent 60%);
+}
+.hero-aurora i:nth-child(2) {
+  bottom: -40vmax;
+  left: -26vmax;
+  background: radial-gradient(circle, rgba(5, 150, 105, 0.13), transparent 60%);
+  animation-duration: 28s;
+  animation-direction: alternate-reverse;
+}
+.hero-aurora i:nth-child(3) {
+  top: -10vmax;
+  left: 20%;
+  width: 46vmax;
+  height: 46vmax;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.08), transparent 60%);
+  animation-duration: 34s;
+}
+@keyframes aurora-drift {
+  to {
+    transform: translate3d(6vmax, 4vmax, 0) scale(1.15);
+  }
+}
+.hero-floor {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 62%;
+  perspective: 520px;
+  perspective-origin: 50% 0%;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent, black 35%, black 60%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 35%, black 60%, transparent);
+}
+.hero-floor i {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  top: 0;
+  height: 200%;
+  background-image:
+    linear-gradient(rgba(52, 211, 153, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(52, 211, 153, 0.13) 1px, transparent 1px);
+  background-size: 56px 56px;
+  transform-origin: 50% 0;
+  transform: rotateX(68deg);
+  animation: floor-run 4.5s linear infinite;
+}
+@keyframes floor-run {
+  to {
+    transform: rotateX(68deg) translateY(56px);
+  }
+}
+.hero-tile {
+  position: absolute;
+  display: none;
+  width: 72px;
+  height: 72px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  border: 1px solid rgba(110, 231, 183, 0.25);
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.28), rgba(6, 78, 59, 0.35));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 24px 48px -18px rgba(16, 185, 129, 0.45);
+  color: #a7f3d0;
+  transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry));
+  animation: tile-float 7s ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+@media (min-width: 1024px) {
+  .hero-tile {
+    display: flex;
+  }
+}
+@keyframes tile-float {
+  50% {
+    transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0, -14px, 0);
+  }
+}
+.text-sheen {
+  /* The light is in the middle third: at both ends of the run only the plain
+     colour is in view, so the word rests without a highlight. */
+  background-image: linear-gradient(100deg, #34d399 34%, #a7f3d0 46%, #22c55e 54%, #34d399 66%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Two passes after the launch screen, then still: background-position is
+     repainted on every frame, so it must not run forever. */
+  animation: text-sheen 3.2s ease-in-out 1.9s 2 both;
+}
+@keyframes text-sheen {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+[data-lite] :is(.hero-aurora i, .hero-floor i, .hero-tile, .text-sheen) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.hero-aurora i, .hero-floor i, .hero-tile, .text-sheen) {
     animation: none;
   }
 }

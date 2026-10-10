@@ -203,6 +203,7 @@ export const kz: Dictionary = {
   footer: {
     rights: "© {year} Portfolio+",
     tagline: "Қазақстан жастарына арналған мүмкіндіктер платформасы",
+    madeBy: "Жасаған команда:",
   },
   favorites: {
     add: "Таңдаулыға қосу",

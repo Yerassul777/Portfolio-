@@ -64,13 +64,16 @@ export default async function CataloguePage(props: Props) {
 
   return (
     <>
-      {/* Separate Suspense boundaries hydrate separately: React can yield
-          between them, so a slow phone gets several short tasks instead of
-          one long one, and a tap on either part is handled first. */}
-      <Suspense>
-        <HeroSection locale={locale} t={t} compact={compact} highlights={highlights} />
-      </Suspense>
-      <Suspense>
+      {/* The hero is in the first chunk of HTML: it is the first paint (and
+          the LCP). In a Suspense boundary of its own React may stream it in a
+          later chunk and reveal it after a frame with an empty page, which
+          moves the footer. The catalogue below the fold keeps its boundary:
+          it hydrates separately, so a slow phone gets two short tasks instead
+          of one long one, and a tap on either part is handled first. Until
+          it is revealed its place is held, a screen tall, so the footer does
+          not show up under the hero and then jump away. */}
+      <HeroSection locale={locale} t={t} compact={compact} highlights={highlights} />
+      <Suspense fallback={<div className="min-h-svh" />}>
         <Catalogue initialQuery={query} initialPage={page} initialOpen={open} />
       </Suspense>
       {page && page.items.length > 0 && (

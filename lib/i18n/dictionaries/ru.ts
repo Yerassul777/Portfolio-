@@ -207,6 +207,7 @@ export const ru = {
   footer: {
     rights: "© {year} Portfolio+",
     tagline: "Платформа возможностей для молодёжи Казахстана",
+    madeBy: "Сделано командой",
   },
   favorites: {
     add: "Добавить в избранное",

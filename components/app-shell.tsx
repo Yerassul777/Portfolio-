@@ -98,8 +98,10 @@ export function AppShell({ active, onSelect, focusRef }: AppShellProps) {
   )
 }
 
-/** Time the launch screen stays at least, from the start of the page. */
-const SPLASH_MIN_MS = 900
+/** Time the launch screen stays at least, from the start of the page: its opening plays out. */
+const SPLASH_MIN_MS = 1700
+/** The logo's flight into the header. */
+const SPLASH_FLIGHT_MS = 650
 
 /**
  * What makes the window behave like an app rather than a web page:
@@ -114,8 +116,26 @@ function useAppBehaviour() {
     let removeSplash: number | undefined
     const endSplash = window.setTimeout(() => {
       if (root.dataset.splash !== "1") return
+      // The logo flies to where the header's logo is; when it lands the
+      // screen is gone and the real one is right under it.
+      const stage = document.querySelector<HTMLElement>("#app-splash .splash-stage")
+      const target = document.querySelector<HTMLElement>("[data-brand-logo]")
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      const from = stage?.getBoundingClientRect()
+      const to = target?.getBoundingClientRect()
+      if (stage && from && to && to.width > 0 && to.bottom > 0 && !still) {
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2)
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2)
+        stage.animate([{ transform: "none" }, { transform: `translate(${dx}px, ${dy}px) scale(${to.width / from.width})` }], {
+          duration: SPLASH_FLIGHT_MS,
+          easing: "cubic-bezier(0.65, 0, 0.35, 1)",
+          fill: "forwards",
+        })
+      } else {
+        stage?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 350, fill: "forwards" })
+      }
       root.dataset.splash = "done"
-      removeSplash = window.setTimeout(() => delete root.dataset.splash, 500)
+      removeSplash = window.setTimeout(() => delete root.dataset.splash, SPLASH_FLIGHT_MS + 30)
     }, Math.max(0, SPLASH_MIN_MS - performance.now()))
 
     const stop = (event: Event) => event.preventDefault()

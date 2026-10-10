@@ -12,6 +12,8 @@ function Logo({ small = false }: { small?: boolean }) {
   return (
     <span
       aria-hidden="true"
+      // The launch screen's logo lands here (components/app-shell.tsx).
+      data-brand-logo={small ? undefined : ""}
       className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-emerald-500 to-green-600 font-bold text-white shadow-lg shadow-emerald-500/20 ${
         small ? "h-8 w-8 rounded-lg text-sm" : "h-10 w-10 rounded-xl text-lg"
       }`}
@@ -103,6 +105,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex flex-col items-center gap-4 md:items-end">
             <p className="text-center text-sm text-gray-400 md:text-right">{t.footer.tagline}</p>
+            <p className="text-center text-xs uppercase tracking-[0.2em] text-gray-400 md:text-right">
+              {t.footer.madeBy} <span className="font-semibold text-emerald-300/90">Team KAYA</span>
+            </p>
             <InstallAppButton />
           </div>
         </div>

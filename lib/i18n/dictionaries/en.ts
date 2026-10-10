@@ -202,6 +202,7 @@ export const en: Dictionary = {
   footer: {
     rights: "© {year} Portfolio+",
     tagline: "Opportunities for young people in Kazakhstan",
+    madeBy: "Made by",
   },
   favorites: {
     add: "Add to favourites",
