@@ -86,6 +86,10 @@ const nextConfig = {
       { source: "/admin", destination: "/ru/admin", permanent: false },
     ]
   },
+  async rewrites() {
+    // Android app links (Google Play): app/api/assetlinks/route.ts.
+    return [{ source: "/.well-known/assetlinks.json", destination: "/api/assetlinks" }]
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

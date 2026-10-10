@@ -27,5 +27,14 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
+    // The richer install dialog of Chrome and Edge, and PWABuilder's store
+    // listings (docs/stores.md). Taken from the live site.
+    screenshots: [
+      { src: "/screenshots/phone-home.webp", sizes: "1080x1920", type: "image/webp", form_factor: "narrow", label: "Главный экран" },
+      { src: "/screenshots/phone-catalogue.webp", sizes: "1080x1920", type: "image/webp", form_factor: "narrow", label: "Каталог возможностей" },
+      { src: "/screenshots/phone-opportunity.webp", sizes: "1080x1920", type: "image/webp", form_factor: "narrow", label: "Страница возможности" },
+      { src: "/screenshots/wide-home.webp", sizes: "1920x1080", type: "image/webp", form_factor: "wide", label: "Главный экран" },
+      { src: "/screenshots/wide-catalogue.webp", sizes: "1920x1080", type: "image/webp", form_factor: "wide", label: "Каталог возможностей" },
+    ],
   }
 }
