@@ -13,7 +13,7 @@ import { fontClassName } from "@/lib/fonts"
 import "../globals.css"
 
 /** Slabs behind the launch screen's logo: its thickness when it turns over. */
-const SPLASH_DEPTH = [1, 2, 3, 4, 5, 6, 7, 8]
+const SPLASH_DEPTH = [1, 2, 3, 4, 5, 6]
 
 export function generateStaticParams() {
   return ENABLED_LOCALES.map((locale) => ({ locale }))
@@ -78,13 +78,17 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased">
-        {/* The installed app's launch screen (globals.css, "Launch screen"); hidden on the website. */}
+        {/* The installed app's launch screen: lib/launch-screen.ts runs it, globals.css
+            ("Launch screen") draws it; hidden on the website. */}
         <div id="app-splash" aria-hidden="true">
-          <div className="splash-aura" />
+          <div className="splash-bg" />
           <div className="splash-stage">
-            <span className="splash-glow" />
-            <div className="splash-orbit">
-              <div className="splash-orbit-ring" />
+            <div className="splash-halo">
+              <span className="splash-glow" />
+              <span className="splash-bloom" />
+              <div className="splash-orbit">
+                <div className="splash-orbit-ring" />
+              </div>
             </div>
             <div className="splash-logo">
               <div className="splash-depth">
@@ -115,11 +119,13 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
             ))}
           </div>
           <div className="splash-credit">
-            <span className="splash-line" />
-            <span>
-              by <b>Team KAYA</b>
-            </span>
-            <span className="splash-line" />
+            <div className="splash-credit-row">
+              <span className="splash-line" />
+              <span>
+                by <b>Team KAYA</b>
+              </span>
+              <span className="splash-line" />
+            </div>
           </div>
         </div>
         <I18nProvider locale={locale} dictionary={getDictionary(locale)}>

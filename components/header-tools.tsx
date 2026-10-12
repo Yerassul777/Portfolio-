@@ -40,6 +40,31 @@ function withScreen(open: Open | null) {
   return state
 }
 
+// Behind the app's launch screen (lib/launch-screen.ts) every screen is
+// rendered once — its code, its data, its first render — so the first tap
+// on a tab is as quick as the ones after it. None of it is seen.
+const PREWARM_SCREENS: Open[] = [
+  { panel: "portfolio", section: "favorites", tab: "favorites" },
+  { panel: "portfolio", section: "portfolio", tab: "achievements" },
+  { panel: "ai", section: "all", tab: "favorites" },
+]
+/** The longest wait for one screen to load. */
+const PREWARM_SCREEN_MS = 1500
+
+const noop = () => {}
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+/** The open screen shows no spinner for a few frames in a row; or `max` ms. */
+async function screenSettled(max: number) {
+  const end = performance.now() + max
+  let calm = 0
+  while (calm < 3 && performance.now() < end) {
+    await nextFrame()
+    const screen = document.querySelector('[role="dialog"][data-state="open"]')
+    calm = screen && !screen.querySelector('.animate-spin, [aria-busy="true"]') ? calm + 1 : 0
+  }
+}
+
 export function HeaderTools() {
   const { t } = useI18n()
   const appMode = useAppMode()
@@ -60,6 +85,8 @@ export function HeaderTools() {
   const appFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
+    // The app's launch screen warms everything up itself (prewarm below).
+    if (document.documentElement.dataset.splash === "1") return
     const warm = () => {
       loadAI().catch(() => {})
       loadPortfolio().catch(() => {})
@@ -90,6 +117,24 @@ export function HeaderTools() {
     },
     [appMode, portfolioTab]
   )
+
+  const prewarm = useCallback(async (signal: AbortSignal) => {
+    const aborted = new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }))
+    const until = (task: Promise<unknown>) => Promise.race([task.then(noop, noop), aborted])
+    await until(Promise.all([loadAI(), loadPortfolio()]))
+    setMounted({ ai: true, portfolio: true })
+    // Straight to the state, not through show(): no history entries.
+    for (const screen of PREWARM_SCREENS) {
+      if (signal.aborted) break
+      openRef.current = screen
+      setOpenState(screen)
+      await until(screenSettled(PREWARM_SCREEN_MS))
+    }
+    openRef.current = null
+    setOpenState(null)
+    await nextFrame()
+    await nextFrame()
+  }, [])
 
   /** Back to the page: the same as pressing Back. */
   const close = useCallback(() => {
@@ -194,7 +239,7 @@ export function HeaderTools() {
           onTabChange={(next) => show("portfolio", next)}
         />
       )}
-      {appMode && <AppShell active={activeTab} onSelect={selectTab} focusRef={appFocusRef} />}
+      {appMode && <AppShell active={activeTab} onSelect={selectTab} focusRef={appFocusRef} prewarm={prewarm} />}
     </>
   )
 }

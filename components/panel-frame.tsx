@@ -22,7 +22,9 @@ export function panelContentProps(variant: PanelVariant, returnFocusRef: RefObje
       "flex flex-col overflow-hidden border-gray-800 bg-[#0d1210] p-0 [&>button]:hidden",
       variant === "sheet"
         ? "w-full sm:w-[90vw] sm:max-w-[600px] md:w-[600px]"
-        : "inset-y-auto left-[var(--app-rail-width)] right-0 top-[var(--app-titlebar-height)] bottom-[var(--app-tabbar-height)] h-auto w-auto max-w-none border-0 sm:max-w-none data-[state=closed]:animate-none data-[state=open]:animate-none"
+        : // animate-none! — tw-animate-css's animate-out otherwise wins the cascade, and a
+          // closed screen would slide away for 300 ms (and stay mounted that long).
+          "inset-y-auto left-[var(--app-rail-width)] right-0 top-[var(--app-titlebar-height)] bottom-[var(--app-tabbar-height)] h-auto w-auto max-w-none border-0 sm:max-w-none data-[state=closed]:animate-none! data-[state=open]:animate-none!"
     ),
     onCloseAutoFocus: (event: Event) => {
       event.preventDefault()

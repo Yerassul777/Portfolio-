@@ -28,7 +28,8 @@ export function isIOS(): boolean {
 /**
  * The script in the root layout's <head>. Kept tiny and dependency-free. In
  * the app it also
- * - asks for the launch screen on a cold start (once per app session), and
+ * - asks for the launch screen on a cold start (once per app session), with a
+ *   safety net that takes it away if the app never does, and
  * - turns off pinch zoom in the viewport (the meta may come after this
  *   script, so it runs again once the document is parsed).
  */
@@ -37,6 +38,8 @@ export const APP_MODE_SCRIPT =
   "try{var d=document.documentElement,n=navigator;if((n.hardwareConcurrency&&n.hardwareConcurrency<=2)||(n.deviceMemory&&n.deviceMemory<=2))d.dataset.lite='1'}catch(e){}" +
   "try{var d=document.documentElement;if(matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: window-controls-overlay)').matches||navigator.standalone===true){d.dataset.app='1';" +
   "try{if(!sessionStorage.getItem('app-launched')){sessionStorage.setItem('app-launched','1');d.dataset.splash='1'}}catch(e){d.dataset.splash='1'}" +
+  // Safety net: if the launch screen's script has not taken over in 10 s (no data-phase), or it is still up after 30 s, it goes.
+  "var g=function(){var s=document.getElementById('app-splash');delete d.dataset.splash;if(s)delete s.dataset.phase};setTimeout(function(){var s=document.getElementById('app-splash');if(d.dataset.splash&&!(s&&s.dataset.phase))g()},10000);setTimeout(g,30000);" +
   "var z=function(){var m=document.querySelector('meta[name=viewport]');if(m&&m.content.indexOf('user-scalable')<0)m.content+=',maximum-scale=1,user-scalable=no'};z();document.addEventListener('DOMContentLoaded',z)}}catch(e){}"
 
 const noop = () => () => {}
