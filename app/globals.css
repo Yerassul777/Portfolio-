@@ -257,19 +257,22 @@ html {
    The installed app's opening on a cold start. <html data-splash> (set before
    the first paint) shows it; its phases are on the screen itself,
    #app-splash[data-phase] (lib/launch-screen.ts):
-   "hold"    the still logo from the very first frame — the same picture as the
-             iOS launch image, so the hand-over cannot be seen — with a slow
-             breathing glow, while the app warms up behind it;
+   (none)    the very first frame: the still logo, the same picture as the iOS
+             launch image, drawn flat — no layers of its own, nothing to
+             prepare — so it is on screen as early as possible;
+   "hold"    the app has started and warms up behind it; the screen's layers
+             are prepared now, while nothing moves (nothing that could stutter
+             while the page is drawn underneath);
    "intro"   once the app is ready: sparks of light gather into the tile, it
              takes a breath and sends out a ring of light, a light runs across
              its face, the orbit appears, the name rises letter by letter,
              "by Team KAYA" last;
-   "done"    the finale: the tile turns over once, a coin with its thickness
-             and the logo on both sides, while it flies into the header;
-             the screen fades;
-   "landed"  cross-fade into the header's own logo.
+   "done"    the finale (the script's, one timeline): the tile turns over
+             once, a coin with its thickness and the logo on both sides, as it
+             flies into the header's socket, and lands there as the turn ends.
    A later start on the same day (data-quick) skips the opening: hold, then
-   the finale at once.
+   the finale at once. The screen takes every tap until the coin has landed;
+   then it is gone in that same frame.
    Everything that moves is transform or opacity on its own layer: the
    compositor animates it even while the page is busy. Weak devices skip the
    heaviest layers; reduced motion gets the still logo and a fade. */
@@ -298,19 +301,17 @@ html {
   user-select: none;
   -webkit-user-select: none;
 }
-#app-splash:is([data-phase="done"], [data-phase="landed"]) {
-  pointer-events: none;
-}
-/* Until the app has started (the script sets data-phase), only the launch
-   screen is drawn: the first frame is quick to paint, so iOS hands over from
-   its launch image to a finished picture rather than to an unpainted (grey)
-   one. The page is drawn behind the still logo, as the app warms up. */
+/* Until the app has started, only the launch screen is drawn: the first frame
+   is quick to paint, so iOS hands over from its launch image to a finished
+   picture rather than to an unpainted (white) one. The page is drawn behind
+   the still logo, as the app warms up. */
 [data-splash] #app-splash:not([data-phase]) ~ * {
   visibility: hidden;
 }
 /* The page under it holds still until the logo has landed: nothing there is
    seen, and the highlighted word's sheen (a repaint per frame) plays in view. */
-[data-splash] :is(.hero-aurora i, .hero-floor i, .hero-tile, .text-sheen) {
+[data-splash] :is(.hero-aurora i, .hero-tile, .text-sheen),
+[data-splash] .kz-map i::after {
   animation-play-state: paused;
 }
 #app-splash .splash-bg {
@@ -319,31 +320,23 @@ html {
   background:
     radial-gradient(70vmax 70vmax at 50% 40%, rgba(16, 185, 129, 0.13), transparent 62%),
     #0a0f0d;
-  will-change: opacity;
-  /* Dissolves once the coin has started to turn and fly. */
-  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.28s;
 }
 #app-splash .splash-stage {
   position: relative;
   width: var(--tile);
   height: var(--tile);
-  perspective: 700px;
-  will-change: transform;
 }
 #app-splash .splash-halo {
   position: absolute;
   inset: 0;
   transition: opacity 0.35s ease;
 }
-/* Breathes from the first frame: the screen is alive while it waits. */
 #app-splash .splash-glow {
   position: absolute;
   inset: -62%;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(16, 185, 129, 0.36), rgba(16, 185, 129, 0.08) 46%, transparent 68%);
   opacity: 0.55;
-  will-change: opacity;
-  animation: splash-breathe 2.6s ease-in-out infinite alternate;
 }
 #app-splash .splash-bloom {
   position: absolute;
@@ -371,11 +364,7 @@ html {
   border-radius: 2px;
   background: linear-gradient(to bottom, rgba(209, 250, 229, 0), #ecfdf5 85%);
   box-shadow: 0 0 10px 2px rgba(52, 211, 153, 0.55);
-  /* Layers of their own from the first frame, and drawn (0.002 is invisible,
-     0 would not be): at the start of the intro there is nothing left to
-     prepare. Without this, the first ~120 ms of the intro dropped frames. */
-  will-change: transform, opacity;
-  opacity: 0.002;
+  opacity: 0;
   transform: rotate(var(--a)) translateY(calc(var(--tile) * -2.6)) scale(1);
 }
 /* The ring of light the tile sends out when the sparks arrive. */
@@ -416,17 +405,17 @@ html {
 }
 /* The tile: a coin — face, thickness, and the logo again on its back. The
    lift (scale) and the logo (turn) are separate elements, so each motion keeps
-   one smooth curve of its own. */
-#app-splash .splash-lift {
+   one curve of its own. In the first frame they lie flat, in this order: the
+   face on top, the same picture as with depth. */
+#app-splash .splash-lift,
+#app-splash .splash-logo,
+#app-splash .splash-depth {
   position: absolute;
   inset: 0;
-  perspective: 700px;
 }
 #app-splash .splash-logo {
+  /* Slabs of the thickness (SPLASH_DEPTH in app/[locale]/layout.tsx). */
   --depth: 6;
-  position: absolute;
-  inset: 0;
-  transform-style: preserve-3d;
 }
 #app-splash .splash-face,
 #app-splash .splash-back,
@@ -438,14 +427,8 @@ html {
 #app-splash .splash-face,
 #app-splash .splash-back {
   overflow: hidden;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-#app-splash .splash-face {
-  transform: translateZ(0.5px);
 }
 #app-splash .splash-back {
-  transform: translateZ(calc(var(--depth) * -1.7px - 0.5px)) rotateY(180deg);
   opacity: 0;
 }
 #app-splash :is(.splash-face, .splash-back) svg {
@@ -453,14 +436,8 @@ html {
   width: 100%;
   height: 100%;
 }
-#app-splash .splash-depth {
-  position: absolute;
-  inset: 0;
-  transform-style: preserve-3d;
-}
 #app-splash .splash-depth i {
   background: linear-gradient(135deg, #059669, #064e3b);
-  transform: translateZ(calc(var(--d) * -1.7px));
 }
 #app-splash .splash-sheen {
   position: absolute;
@@ -513,76 +490,83 @@ html {
   background: linear-gradient(270deg, transparent, rgba(110, 231, 183, 0.8));
 }
 
+/* Started (any phase): layers of their own, prepared behind the still logo,
+   so the finale has nothing left to set up. The sparks are drawn too (0.002
+   is invisible, 0 would not be): without it the intro's first ~120 ms
+   dropped frames while they appeared. */
+#app-splash[data-phase] .splash-bg {
+  will-change: opacity;
+}
+#app-splash[data-phase] .splash-stage {
+  will-change: transform;
+}
+#app-splash[data-phase] .splash-sparks i {
+  will-change: transform, opacity;
+  opacity: 0.002;
+}
+#app-splash[data-phase] :is(.splash-stage, .splash-lift) {
+  perspective: 700px;
+}
+#app-splash[data-phase] :is(.splash-logo, .splash-depth) {
+  transform-style: preserve-3d;
+}
+#app-splash[data-phase] .splash-face {
+  transform: translateZ(0.5px);
+}
+#app-splash[data-phase] .splash-back {
+  transform: translateZ(calc(var(--depth) * -1.7px - 0.5px)) rotateY(180deg);
+}
+#app-splash[data-phase] .splash-depth i {
+  transform: translateZ(calc(var(--d) * -1.7px));
+}
+
 /* Intro. Times are from its start; it is complete at ~1.5 s. The animations
-   go on through the exit, so a tap that skips ahead never makes anything jump. */
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-sparks i {
+   go on through the finale, so a tap that skips ahead never makes anything
+   jump. Never in a quick start: hidden, they would still be ticked by the
+   main thread on every frame of the finale. */
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-sparks i {
   animation: splash-gather 0.55s cubic-bezier(0.55, 0, 0.85, 0.45) calc(var(--delay) * 0.6s) forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-lift {
+/* Only in the intro: in the finale the lift is the script's, and two
+   animations of one property on one element cannot run on the compositor. */
+#app-splash[data-phase="intro"] .splash-lift {
   animation: splash-pulse 0.6s linear 0.5s both;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-wave {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-wave {
   animation: splash-wave 0.85s cubic-bezier(0.2, 0.7, 0.3, 1) 0.55s forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-bloom {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-bloom {
   animation: splash-bloom 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-sheen {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-sheen {
   animation: splash-sheen 0.7s cubic-bezier(0.45, 0, 0.55, 1) 0.62s forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-orbit {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-orbit {
   animation: splash-orbit-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-orbit-ring {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-orbit-ring {
   animation: splash-spin 3.6s linear 0.6s infinite;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-name span {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-name span {
   animation: splash-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) calc(0.55s + var(--i) * 0.035s) forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-credit-row {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-credit-row {
   animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
 }
-#app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-line {
+#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-line {
   animation: splash-line 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
 }
 
-/* Finale: the coin turns over once on its way to the header (the flight
-   itself is the script's: lib/launch-screen.ts). */
-#app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-logo {
-  animation: splash-flip 0.9s cubic-bezier(0.5, 0, 0.25, 1) both;
-}
-#app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-lift {
-  animation: splash-lift 0.9s ease-in-out both;
-}
-/* Which side shows is switched exactly when the coin is edge-on, in step with
-   the turn: it does not rely on backface-visibility, which some WebKit builds
-   get wrong (the front would show mirrored instead of the back). */
-#app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-face {
-  animation: splash-front 0.9s linear both;
-}
-#app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-back {
-  animation: splash-reverse 0.9s linear both;
-}
-#app-splash:is([data-phase="done"], [data-phase="landed"]) :is(.splash-halo, .splash-credit) {
+/* Finale: the halo and the words step aside (the words were never shown in a
+   quick start); the coin, its flight and the screen's fade are
+   lib/launch-screen.ts. */
+#app-splash[data-phase="done"] .splash-halo,
+#app-splash[data-phase="done"]:not([data-quick]) .splash-credit {
   opacity: 0;
 }
-#app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-name {
+#app-splash[data-phase="done"]:not([data-quick]) .splash-name {
   opacity: 0;
   transform: translateY(-8px);
-}
-#app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-bg {
-  opacity: 0;
-}
-#app-splash[data-phase="landed"] .splash-stage {
-  opacity: 0;
-  transition: opacity 0.22s ease;
-}
-/* The header's logo waits for the flying one. */
-[data-brand-logo] {
-  transition: opacity 0.22s ease;
-}
-[data-splash] [data-brand-logo] {
-  opacity: 0;
 }
 
 /* A later start the same day: no opening, the coin turns and flies at once.
@@ -595,6 +579,53 @@ html {
 /* Weak devices: no sparks, thickness, orbit or bloom — the fewest layers. */
 [data-lite] #app-splash :is(.splash-sparks, .splash-depth, .splash-orbit, .splash-bloom) {
   display: none;
+}
+
+/* The header's logo: the shared mark (components/brand-mark.tsx) on a soft
+   glow. While the launch screen is up it is an empty socket — a faint outline
+   the coin flies into; as the coin lands, the outline rings out once. */
+.brand-logo {
+  position: relative;
+  isolation: isolate;
+  border-radius: 22%;
+}
+.brand-logo > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.brand-logo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: 0 8px 20px -6px rgba(16, 185, 129, 0.45);
+}
+[data-brand-logo]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid rgba(110, 231, 183, 0.55);
+  box-shadow:
+    0 0 14px rgba(52, 211, 153, 0.35),
+    inset 0 0 10px rgba(52, 211, 153, 0.25);
+  opacity: 0;
+  pointer-events: none;
+}
+[data-splash] [data-brand-logo] > svg,
+[data-splash] [data-brand-logo]::after {
+  opacity: 0;
+}
+[data-splash] [data-brand-logo]::before {
+  opacity: 1;
+}
+[data-landed] [data-brand-logo]::before {
+  animation: brand-socket-ring 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-landed] [data-brand-logo]::after {
+  animation: brand-glow-in 0.7s ease-out;
 }
 
 @keyframes splash-gather {
@@ -638,55 +669,6 @@ html {
     transform: scale(2.9);
   }
 }
-/* One full turn: slow to start, quick through the middle, a soft landing. */
-@keyframes splash-flip {
-  from {
-    transform: rotateY(0deg);
-  }
-  to {
-    transform: rotateY(360deg);
-  }
-}
-/* The turn's curve, cubic-bezier(0.5, 0, 0.25, 1), passes 90° at 31.07 % of
-   its time and 270° at 52.44 %: the sides swap there. */
-@keyframes splash-front {
-  0%,
-  31.07% {
-    opacity: 1;
-  }
-  31.08%,
-  52.43% {
-    opacity: 0;
-  }
-  52.44%,
-  100% {
-    opacity: 1;
-  }
-}
-@keyframes splash-reverse {
-  0%,
-  31.07% {
-    opacity: 0;
-  }
-  31.08%,
-  52.43% {
-    opacity: 1;
-  }
-  52.44%,
-  100% {
-    opacity: 0;
-  }
-}
-/* …lifted towards the viewer while it turns. */
-@keyframes splash-lift {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  45% {
-    transform: scale(1.18);
-  }
-}
 @keyframes splash-sheen {
   to {
     transform: translateX(130%);
@@ -720,9 +702,19 @@ html {
     transform: none;
   }
 }
-@keyframes splash-breathe {
-  to {
+@keyframes brand-socket-ring {
+  from {
     opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+@keyframes brand-glow-in {
+  from {
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -730,21 +722,21 @@ html {
   #app-splash *::after {
     animation: none !important;
   }
-  #app-splash .splash-bg,
-  #app-splash .splash-stage {
-    transition: opacity 0.4s ease;
-  }
-  #app-splash[data-phase="done"] .splash-stage {
-    opacity: 0;
+  [data-landed] [data-brand-logo]::before,
+  [data-landed] [data-brand-logo]::after {
+    animation: none;
   }
 }
 
 /* --- Home screen ----------------------------------------------------------
-   Decoration only, behind and around the hero's text (which never moves, so
-   the first paint is not held back): drifting aurora lights, a 3D grid floor
-   running towards the viewer, floating 3D tiles with the four sections on
-   wide screens, a sheen on the highlighted word. Compositor-only motion;
-   static on weak devices and with reduced motion. */
+   Decoration only, around the hero's text (which never moves, so the first
+   paint is not held back): drifting aurora lights; Kazakhstan in glowing dots
+   with its cities lighting up one after another; the four sections as
+   floating 3D tiles; a sheen on the highlighted word (components/hero-scene.tsx).
+   The map is a band of its own under the search (behind the text it read as
+   stray dots in the letters); the tiles are at its sides on phones and
+   around the heading on wide screens.
+   Compositor-only motion; static on weak devices and with reduced motion. */
 .hero-aurora {
   position: absolute;
   inset: 0;
@@ -767,7 +759,7 @@ html {
 .hero-aurora i:nth-child(2) {
   bottom: -40vmax;
   left: -26vmax;
-  background: radial-gradient(circle, rgba(5, 150, 105, 0.13), transparent 60%);
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.13), transparent 60%);
   animation-duration: 28s;
   animation-direction: alternate-reverse;
 }
@@ -784,64 +776,150 @@ html {
     transform: translate3d(6vmax, 4vmax, 0) scale(1.15);
   }
 }
-.hero-floor {
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 62%;
-  perspective: 520px;
-  perspective-origin: 50% 0%;
-  overflow: hidden;
+
+.hero-scene {
+  position: relative;
+  max-width: 34rem;
+  margin: 2rem auto 0;
+  padding: 0 2.75rem;
   pointer-events: none;
-  mask-image: linear-gradient(to bottom, transparent, black 35%, black 60%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 35%, black 60%, transparent);
 }
-.hero-floor i {
+.kz-map {
+  position: relative;
+  width: 100%;
+}
+/* The dots: a gradient seen through the map (a mask, not an image — never
+   the page's "largest paint", never repainted). */
+.kz-map::before {
+  content: "";
   position: absolute;
-  left: -50%;
-  right: -50%;
-  top: 0;
-  height: 200%;
-  background-image:
-    linear-gradient(rgba(52, 211, 153, 0.13) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(52, 211, 153, 0.13) 1px, transparent 1px);
-  background-size: 56px 56px;
-  transform-origin: 50% 0;
-  transform: rotateX(68deg);
-  animation: floor-run 4.5s linear infinite;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(45, 212, 191, 0.5), rgba(52, 211, 153, 0.7) 55%, rgba(163, 230, 53, 0.5));
+  -webkit-mask: var(--map) center / 100% 100% no-repeat;
+  mask: var(--map) center / 100% 100% no-repeat;
+  opacity: 0.55;
 }
-@keyframes floor-run {
-  to {
-    transform: rotateX(68deg) translateY(56px);
+/* A city: a steady light, and a ring that goes out from it now and then —
+   four times, then the lights just glow: every ring's start costs the main
+   thread a style update, and the page must not keep it busy forever. */
+.kz-map i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #d1fae5;
+  box-shadow: 0 0 6px 2px rgba(52, 211, 153, 0.75);
+}
+.kz-map i[data-major] {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  box-shadow: 0 0 10px 3px rgba(52, 211, 153, 0.8);
+}
+.kz-map i::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid rgba(110, 231, 183, 0.7);
+  opacity: 0;
+  animation: city-pulse 4.8s ease-out var(--delay) 4;
+}
+@keyframes city-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.4);
+  }
+  45%,
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
   }
 }
+
 .hero-tile {
   position: absolute;
-  display: none;
-  width: 72px;
-  height: 72px;
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
   align-items: center;
   justify-content: center;
-  border-radius: 20px;
+  border-radius: 0.875rem;
   border: 1px solid rgba(110, 231, 183, 0.25);
   background: linear-gradient(145deg, rgba(16, 185, 129, 0.28), rgba(6, 78, 59, 0.35));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 24px 48px -18px rgba(16, 185, 129, 0.45);
+    0 16px 32px -14px rgba(16, 185, 129, 0.45);
   color: #a7f3d0;
   transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry));
   animation: tile-float 7s ease-in-out infinite;
   animation-delay: var(--delay);
 }
-@media (min-width: 1024px) {
-  .hero-tile {
-    display: flex;
-  }
+.hero-tile svg {
+  width: 45%;
+  height: 45%;
+}
+/* Phones: at the map's sides. */
+.hero-tile[data-slot="top-left"] {
+  top: 0;
+  left: 0;
+}
+.hero-tile[data-slot="bottom-left"] {
+  bottom: 0;
+  left: 0.5rem;
+}
+.hero-tile[data-slot="top-right"] {
+  top: 0.5rem;
+  right: 0;
+}
+.hero-tile[data-slot="bottom-right"] {
+  bottom: -0.25rem;
+  right: 0.5rem;
 }
 @keyframes tile-float {
   50% {
-    transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0, -14px, 0);
+    transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0, -10px, 0);
   }
 }
+
+/* Wide screens: a larger map; the tiles leave it for the empty space around
+   the heading (the scene is not their frame any more, the hero's content is). */
+@media (min-width: 1024px) {
+  .hero-scene {
+    position: static;
+    max-width: 40rem;
+    margin-top: 2.5rem;
+    padding: 0;
+  }
+  .hero-tile {
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1.25rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 24px 48px -18px rgba(16, 185, 129, 0.45);
+  }
+  .hero-tile[data-slot="top-left"] {
+    top: 2.5rem;
+    left: 6%;
+  }
+  .hero-tile[data-slot="bottom-left"] {
+    top: 13rem;
+    bottom: auto;
+    left: 3%;
+  }
+  .hero-tile[data-slot="top-right"] {
+    top: 3rem;
+    right: 7%;
+  }
+  .hero-tile[data-slot="bottom-right"] {
+    top: 13.5rem;
+    bottom: auto;
+    right: 3%;
+  }
+}
+
 .text-sheen {
   /* The light is in the middle third: at both ends of the run only the plain
      colour is in view, so the word rests without a highlight. */
@@ -862,11 +940,13 @@ html {
     background-position: 0% 0;
   }
 }
-[data-lite] :is(.hero-aurora i, .hero-floor i, .hero-tile, .text-sheen) {
+[data-lite] :is(.hero-aurora i, .hero-tile, .text-sheen),
+[data-lite] .kz-map i::after {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.hero-aurora i, .hero-floor i, .hero-tile, .text-sheen) {
+  :is(.hero-aurora i, .hero-tile, .text-sheen),
+  .kz-map i::after {
     animation: none;
   }
 }

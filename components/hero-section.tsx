@@ -1,6 +1,5 @@
-import type { CSSProperties } from "react"
-import { GraduationCap, HeartHandshake, Medal, Trophy } from "lucide-react"
 import { DeadlineStrip } from "@/components/deadline-strip"
+import { HeroScene } from "@/components/hero-scene"
 import { HeroSearch } from "@/components/hero-search"
 import type { Highlights } from "@/lib/catalogue"
 import type { Dictionary } from "@/lib/i18n"
@@ -9,15 +8,6 @@ import { plural } from "@/lib/i18n/format"
 
 // The counts are social proof only once they are big enough to impress.
 const STATS_MIN_TOTAL = 20
-
-// The four sections as floating 3D tiles around the heading (wide screens
-// only; globals.css "Home screen"). Positions in % of the hero.
-const TILES = [
-  { icon: Trophy, top: "16%", left: "7%", rx: "14deg", ry: "22deg", delay: "0s" },
-  { icon: Medal, top: "58%", left: "11%", rx: "-10deg", ry: "28deg", delay: "-2.5s" },
-  { icon: GraduationCap, top: "18%", right: "8%", rx: "12deg", ry: "-24deg", delay: "-1.2s" },
-  { icon: HeartHandshake, top: "60%", right: "12%", rx: "-14deg", ry: "-20deg", delay: "-4s" },
-]
 
 interface HeroSectionProps {
   locale: Locale
@@ -52,21 +42,11 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
         }}
       />
       {!compact && (
-        // Decoration behind the text: drifting lights, a 3D grid floor, floating tiles.
-        <div aria-hidden="true">
-          <div className="hero-aurora">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="hero-floor">
-            <i />
-          </div>
-          {TILES.map(({ icon: Icon, top, left, right, rx, ry, delay }, index) => (
-            <span key={index} className="hero-tile" style={{ top, left, right, "--rx": rx, "--ry": ry, "--delay": delay } as CSSProperties}>
-              <Icon className="h-8 w-8" strokeWidth={1.75} />
-            </span>
-          ))}
+        // Drifting lights behind everything.
+        <div aria-hidden="true" className="hero-aurora">
+          <i />
+          <i />
+          <i />
         </div>
       )}
 
@@ -104,6 +84,8 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
             </p>
           )}
         </div>
+
+        {!compact && <HeroScene />}
 
         {!compact && highlights && highlights.soon.length > 0 && (
           <div className="mt-10 sm:mt-12">

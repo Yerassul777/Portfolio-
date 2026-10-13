@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import type { ReactNode } from "react"
+import { BrandMark } from "@/components/brand-mark"
 import { HeaderTools } from "@/components/header-tools"
 import { InstallAppButton } from "@/components/install-app"
 import { LanguageSwitcher } from "@/components/language-switcher"
@@ -12,14 +13,12 @@ import { format } from "@/lib/i18n/format"
 function Logo({ small = false }: { small?: boolean }) {
   return (
     <span
-      aria-hidden="true"
-      // The launch screen's logo lands here (components/app-shell.tsx).
+      // The launch screen's coin lands here (lib/launch-screen.ts); globals.css
+      // draws the socket it flies into.
       data-brand-logo={small ? undefined : ""}
-      className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-emerald-500 to-green-600 font-bold text-white shadow-lg shadow-emerald-500/20 ${
-        small ? "h-8 w-8 rounded-lg text-sm" : "h-10 w-10 rounded-xl text-lg"
-      }`}
+      className={`brand-logo shrink-0 ${small ? "size-8" : "size-10"}`}
     >
-      P+
+      <BrandMark id={small ? "brand-mark-footer" : "brand-mark-header"} />
     </span>
   )
 }
@@ -48,7 +47,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </a>
 
       {/*
-        Static background: two soft glows and a faint grid, no animation.
+        Static background: soft glows in the corners, no animation and no grid.
         The glows are radial gradients, not blurred circles: a CSS blur filter
         this size has to be re-rasterised on phones whenever the viewport
         changes, which showed up as stutter on the first scroll. The layer is
@@ -59,21 +58,13 @@ export function SiteShell({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 top-0 z-0 h-lvh"
         style={{
           backgroundImage: [
-            "radial-gradient(circle at 100% 0%, rgba(16,185,129,0.07), transparent 480px)",
-            "radial-gradient(circle at 0% 100%, rgba(5,150,105,0.06), transparent 420px)",
+            "radial-gradient(circle at 100% 0%, rgba(16,185,129,0.08), transparent 480px)",
+            "radial-gradient(circle at 0% 100%, rgba(20,184,166,0.06), transparent 440px)",
+            "radial-gradient(ellipse at 50% 120%, rgba(16,185,129,0.06), transparent 60%)",
             "linear-gradient(to bottom, #0a0f0d, #0d1a14, #0a0f0d)",
           ].join(","),
         }}
-      >
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        />
-      </div>
+      />
 
       {/* backdrop-blur only from sm up: on phones it re-blurs the page under the header on every scroll frame. */}
       <header className="sticky top-[var(--app-titlebar-height)] z-40 border-b border-emerald-500/10 bg-[#0a0f0d] pt-[env(safe-area-inset-top)] sm:bg-[#0a0f0d]/80 sm:backdrop-blur-md">

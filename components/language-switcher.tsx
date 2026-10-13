@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Check, Globe } from "lucide-react"
 import { useI18n } from "@/components/i18n-provider"
+import { isIOS } from "@/lib/app-mode"
 import { ENABLED_LOCALES, LOCALE_NAMES, LOCALE_SHORT, type Locale } from "@/lib/i18n/config"
 
 /** How long the choice is remembered (the "/" redirect reads it; next.config.mjs). */
@@ -15,15 +16,22 @@ function choose(next: Locale) {
   window.location.assign(`/${next}${rest}${search}${hash}`)
 }
 
+const subscribe = () => () => {}
+
 /**
- * RU / KZ / EN. A small menu in the site's own colours (the browser's
- * built-in list is white and cannot be styled). The same page opens in the
- * other language, with its filters and search kept; the choice is remembered
- * in a cookie so that the next visit to "/" (and the installed app) starts
- * there. Tab and arrow keys, Escape and a tap outside work as in any menu.
+ * RU / KZ / EN. The same page opens in the other language, with its filters
+ * and search kept; the choice is remembered in a cookie so that the next visit
+ * to "/" (and the installed app) starts there.
+ *
+ * On iPhone and iPad the button opens the system's own picker (a native
+ * <select> lies over it, invisible): it looks and feels like the rest of iOS.
+ * Elsewhere the browser's list is a plain grey or white box that cannot be
+ * styled, so it is a small menu in the site's colours: Tab and arrow keys,
+ * Escape and a tap outside work as in any menu.
  */
 export function LanguageSwitcher() {
   const { locale, t } = useI18n()
+  const native = useSyncExternalStore(subscribe, isIOS, () => false)
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -57,14 +65,30 @@ export function LanguageSwitcher() {
 
   return (
     <div ref={root} className="relative shrink-0">
+      {native && (
+        <select
+          aria-label={t.language.label}
+          value={locale}
+          onChange={(event) => choose(event.target.value as Locale)}
+          className="peer absolute inset-0 z-10 size-full cursor-pointer appearance-none rounded-full opacity-0"
+        >
+          {ENABLED_LOCALES.map((code) => (
+            <option key={code} value={code} lang={code === "kz" ? "kk" : code}>
+              {LOCALE_NAMES[code]}
+            </option>
+          ))}
+        </select>
+      )}
       <button
         ref={button}
         type="button"
         aria-label={t.language.label}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-hidden={native || undefined}
+        tabIndex={native ? -1 : undefined}
         onClick={() => setOpen((value) => !value)}
-        className={`flex size-11 items-center justify-center rounded-full border text-gray-300 transition-colors hover:border-emerald-500/50 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3 ${
+        className={`flex size-11 items-center justify-center rounded-full border text-gray-300 transition-colors hover:border-emerald-500/50 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/60 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3 ${
           open ? "border-emerald-500/60 bg-emerald-500/10 text-white" : "border-gray-700"
         }`}
       >

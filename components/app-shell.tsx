@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { useSWRConfig } from "swr"
 import { ArrowDown, Bot, Briefcase, Heart, LayoutGrid, Loader2, type LucideIcon } from "lucide-react"
+import { BrandMark } from "@/components/brand-mark"
 import { useI18n } from "@/components/i18n-provider"
 import { haptic } from "@/lib/app-mode"
 import { useLaunchScreen } from "@/lib/launch-screen"
@@ -50,7 +51,7 @@ export function AppShell({ active, onSelect, focusRef, prewarm }: AppShellProps)
   return createPortal(
     <>
       <div className="app-titlebar" aria-hidden="true">
-        <span className="flex h-4 w-4 items-center justify-center rounded bg-gradient-to-br from-emerald-500 to-green-600 text-[8px] font-bold text-white">P+</span>
+        <BrandMark id="brand-mark-titlebar" className="size-4" />
         <span className="font-medium text-gray-300">{t.meta.siteName}</span>
         <span className="text-gray-600">·</span>
         <span>{t.app.tabs[active]}</span>

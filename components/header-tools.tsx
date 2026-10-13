@@ -41,27 +41,28 @@ function withScreen(open: Open | null) {
 }
 
 // Behind the app's launch screen (lib/launch-screen.ts) every screen is
-// rendered once — its code, its data, its first render — so the first tap
-// on a tab is as quick as the ones after it. None of it is seen.
+// rendered once — its code and its first render — so the first tap on a tab
+// is as quick as the ones after it. None of it is seen. Their data starts
+// loading then and goes on after the screen closes (SWR keeps it): the launch
+// screen does not wait for the network.
 const PREWARM_SCREENS: Open[] = [
   { panel: "portfolio", section: "favorites", tab: "favorites" },
   { panel: "portfolio", section: "portfolio", tab: "achievements" },
   { panel: "ai", section: "all", tab: "favorites" },
 ]
-/** The longest wait for one screen to load. */
-const PREWARM_SCREEN_MS = 1500
+/** The longest wait for one screen to render. */
+const PREWARM_SCREEN_MS = 400
 
 const noop = () => {}
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 
-/** The open screen shows no spinner for a few frames in a row; or `max` ms. */
-async function screenSettled(max: number) {
+/** The open screen has been rendered and painted (two frames on screen); or `max` ms. */
+async function screenRendered(max: number) {
   const end = performance.now() + max
-  let calm = 0
-  while (calm < 3 && performance.now() < end) {
+  let frames = 0
+  while (frames < 2 && performance.now() < end) {
     await nextFrame()
-    const screen = document.querySelector('[role="dialog"][data-state="open"]')
-    calm = screen && !screen.querySelector('.animate-spin, [aria-busy="true"]') ? calm + 1 : 0
+    if (document.querySelector('[role="dialog"][data-state="open"]')) frames++
   }
 }
 
@@ -137,7 +138,7 @@ export function HeaderTools() {
       if (signal.aborted) break
       openRef.current = screen
       setOpenState(screen)
-      await until(screenSettled(PREWARM_SCREEN_MS))
+      await until(screenRendered(PREWARM_SCREEN_MS))
     }
     openRef.current = null
     setOpenState(null)
