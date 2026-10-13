@@ -3,6 +3,12 @@
 // - Pages: network first, so content is always fresh when online. Every page
 //   that loads is kept, and shown from the cache when the network fails; a
 //   page never visited gets /offline.html.
+// - A cold start (no window of the site open, e.g. the app launched from the
+//   Home Screen) of the home page opens it from the cache at once, without
+//   waiting for the server; the copy is updated in the background, and the page
+//   brings itself up to date once the launch screen is gone
+//   (components/fresh-page.tsx). "/" goes to the last language used, without
+//   the server's redirect.
 // - Build assets (/_next/static, hashed and immutable), icons and catalogue
 //   images: cache first.
 // - Everything else is left alone: Supabase and other origins, /api, and the
@@ -19,6 +25,11 @@ const PAGE_CACHE = `pages-${VERSION}`
 const OFFLINE_URL = "/offline.html"
 const FAVICON_URL = "/favicon.ico"
 const MAX_PAGES = 30
+const LOCALES = ["ru", "kz", "en"]
+// The language of the last page opened: where "/" goes on a cold start.
+const LOCALE_KEY = "/__sw/locale"
+// An older copy of the home page waits for the network, as other pages do.
+const LAUNCH_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000
 const MAX_STATIC = 300
 // Sign-in redirects carry a one-time code or token in the URL: never stored.
 const AUTH_PARAMS = ["code", "access_token", "refresh_token", "token_hash", "error_description"]
@@ -55,7 +66,7 @@ self.addEventListener("fetch", (event) => {
   if (request.headers.has("RSC") || url.searchParams.has("_rsc")) return
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirstPage(event))
+    event.respondWith(navigate(event, url))
     return
   }
   if (url.pathname === FAVICON_URL) {
@@ -81,6 +92,7 @@ self.addEventListener("message", (event) => {
         const path = new URL(request.url).pathname
         if (path !== OFFLINE_URL && path !== FAVICON_URL) await cache.delete(request)
       }
+      knownLocale = null
     })
   )
 })
@@ -130,6 +142,59 @@ self.addEventListener("notificationclick", (event) => {
   )
 })
 
+async function navigate(event, url) {
+  const locale = LOCALES.find((code) => url.pathname === `/${code}` || url.pathname.startsWith(`/${code}/`))
+  if (locale) event.waitUntil(rememberLocale(locale))
+  if (url.search === "" && (url.pathname === "/" || url.pathname === `/${locale}`) && (await isColdStart())) {
+    if (url.pathname === "/") {
+      const last = await lastLocale()
+      if (last) return Response.redirect(new URL(`/${last}`, self.location.origin).href, 307)
+    } else {
+      const page = await launchPage(event)
+      if (page) return page
+    }
+  }
+  return networkFirstPage(event)
+}
+
+/** No window of the site is open: the app (or the site) is starting. */
+async function isColdStart() {
+  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true })
+  return windows.length === 0
+}
+
+/** The cached copy of the home page, if recent enough; updated in the background. */
+async function launchPage(event) {
+  const cache = await caches.open(PAGE_CACHE)
+  const cached = await cache.match(event.request)
+  const age = cached ? Date.now() - Date.parse(cached.headers.get("date") ?? "") : NaN
+  if (!cached || !(age < LAUNCH_MAX_AGE_MS)) return null
+  event.waitUntil(
+    (async () => {
+      try {
+        const response = (await event.preloadResponse) || (await fetch(event.request))
+        if (response.ok && response.type === "basic") await cache.put(event.request, response)
+      } catch {}
+    })()
+  )
+  return cached
+}
+
+let knownLocale = null
+
+async function rememberLocale(locale) {
+  if (knownLocale === locale) return
+  knownLocale = locale
+  const cache = await caches.open(PAGE_CACHE)
+  await cache.put(LOCALE_KEY, new Response(locale))
+}
+
+async function lastLocale() {
+  const cached = await (await caches.open(PAGE_CACHE)).match(LOCALE_KEY)
+  const locale = cached ? await cached.text() : null
+  return LOCALES.includes(locale) ? locale : null
+}
+
 async function networkFirstPage(event) {
   const { request } = event
   try {
@@ -141,7 +206,7 @@ async function networkFirstPage(event) {
       event.waitUntil(
         caches.open(PAGE_CACHE).then(async (cache) => {
           await cache.put(request, copy)
-          await trim(cache, MAX_PAGES, [OFFLINE_URL, FAVICON_URL])
+          await trim(cache, MAX_PAGES, [OFFLINE_URL, FAVICON_URL, LOCALE_KEY])
         })
       )
     }

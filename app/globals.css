@@ -268,6 +268,8 @@ html {
              and the logo on both sides, while it flies into the header;
              the screen fades;
    "landed"  cross-fade into the header's own logo.
+   A later start on the same day (data-quick) skips the opening: hold, then
+   the finale at once.
    Everything that moves is transform or opacity on its own layer: the
    compositor animates it even while the page is busy. Weak devices skip the
    heaviest layers; reduced motion gets the still logo and a fade. */
@@ -278,7 +280,14 @@ html {
 #app-splash[data-phase] {
   --tile: min(28vmin, 128px);
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* On iOS, the screen's own height (lib/app-mode.ts). The first frame of a
+     cold start there is laid out for a viewport ~60 px short and corrected a
+     moment later: sized by the viewport, the logo jumped up and back, and the
+     page showed below it, as iOS cross-faded from its launch image. */
+  height: var(--launch-h, 100%);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -291,6 +300,13 @@ html {
 }
 #app-splash:is([data-phase="done"], [data-phase="landed"]) {
   pointer-events: none;
+}
+/* Until the app has started (the script sets data-phase), only the launch
+   screen is drawn: the first frame is quick to paint, so iOS hands over from
+   its launch image to a finished picture rather than to an unpainted (grey)
+   one. The page is drawn behind the still logo, as the app warms up. */
+[data-splash] #app-splash:not([data-phase]) ~ * {
+  visibility: hidden;
 }
 /* The page under it holds still until the logo has landed: nothing there is
    seen, and the highlighted word's sheen (a repaint per frame) plays in view. */
@@ -305,7 +321,7 @@ html {
     #0a0f0d;
   will-change: opacity;
   /* Dissolves once the coin has started to turn and fly. */
-  transition: opacity 0.75s cubic-bezier(0.4, 0, 0.2, 1) 0.35s;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.28s;
 }
 #app-splash .splash-stage {
   position: relative;
@@ -497,55 +513,55 @@ html {
   background: linear-gradient(270deg, transparent, rgba(110, 231, 183, 0.8));
 }
 
-/* Intro. Times are from its start; it is complete at ~2.5 s. The animations
+/* Intro. Times are from its start; it is complete at ~1.5 s. The animations
    go on through the exit, so a tap that skips ahead never makes anything jump. */
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-sparks i {
-  animation: splash-gather 0.8s cubic-bezier(0.55, 0, 0.85, 0.45) calc(var(--delay) * 1s) forwards;
+  animation: splash-gather 0.55s cubic-bezier(0.55, 0, 0.85, 0.45) calc(var(--delay) * 0.6s) forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-lift {
-  animation: splash-pulse 0.75s linear 0.78s both;
+  animation: splash-pulse 0.6s linear 0.5s both;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-wave {
-  animation: splash-wave 1s cubic-bezier(0.2, 0.7, 0.3, 1) 0.85s forwards;
+  animation: splash-wave 0.85s cubic-bezier(0.2, 0.7, 0.3, 1) 0.55s forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-bloom {
-  animation: splash-bloom 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
+  animation: splash-bloom 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-sheen {
-  animation: splash-sheen 0.9s cubic-bezier(0.45, 0, 0.55, 1) 0.95s forwards;
+  animation: splash-sheen 0.7s cubic-bezier(0.45, 0, 0.55, 1) 0.62s forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-orbit {
-  animation: splash-orbit-in 1.1s cubic-bezier(0.22, 1, 0.36, 1) 1s forwards;
+  animation: splash-orbit-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-orbit-ring {
-  animation: splash-spin 4.2s linear 1s infinite;
+  animation: splash-spin 3.6s linear 0.6s infinite;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-name span {
-  animation: splash-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) calc(1.1s + var(--i) * 0.05s) forwards;
+  animation: splash-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) calc(0.55s + var(--i) * 0.035s) forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-credit-row {
-  animation: splash-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 1.65s forwards;
+  animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
 }
 #app-splash:is([data-phase="intro"], [data-phase="done"], [data-phase="landed"]) .splash-line {
-  animation: splash-line 0.8s cubic-bezier(0.22, 1, 0.36, 1) 1.8s forwards;
+  animation: splash-line 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
 }
 
 /* Finale: the coin turns over once on its way to the header (the flight
    itself is the script's: lib/launch-screen.ts). */
 #app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-logo {
-  animation: splash-flip 1s cubic-bezier(0.5, 0, 0.25, 1) both;
+  animation: splash-flip 0.9s cubic-bezier(0.5, 0, 0.25, 1) both;
 }
 #app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-lift {
-  animation: splash-lift 1s ease-in-out both;
+  animation: splash-lift 0.9s ease-in-out both;
 }
 /* Which side shows is switched exactly when the coin is edge-on, in step with
    the turn: it does not rely on backface-visibility, which some WebKit builds
    get wrong (the front would show mirrored instead of the back). */
 #app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-face {
-  animation: splash-front 1s linear both;
+  animation: splash-front 0.9s linear both;
 }
 #app-splash:is([data-phase="done"], [data-phase="landed"]) .splash-back {
-  animation: splash-reverse 1s linear both;
+  animation: splash-reverse 0.9s linear both;
 }
 #app-splash:is([data-phase="done"], [data-phase="landed"]) :is(.splash-halo, .splash-credit) {
   opacity: 0;
@@ -567,6 +583,13 @@ html {
 }
 [data-splash] [data-brand-logo] {
   opacity: 0;
+}
+
+/* A later start the same day: no opening, the coin turns and flies at once.
+   Hidden, not removed: the name keeps its place, so the logo stays exactly
+   where the launch image has it. */
+#app-splash[data-quick] :is(.splash-sparks, .splash-wave, .splash-bloom, .splash-orbit, .splash-sheen, .splash-name, .splash-credit) {
+  visibility: hidden;
 }
 
 /* Weak devices: no sparks, thickness, orbit or bloom — the fewest layers. */

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { notFound, permanentRedirect } from "next/navigation"
+import { FreshPage } from "@/components/fresh-page"
 import { SiteShell } from "@/components/site-shell"
 import { isCategory } from "@/lib/catalogue"
 import { isEnabledLocale } from "@/lib/i18n/config"
@@ -19,5 +20,12 @@ export default async function CategoryLayout({
   if (category && (category.length > 1 || !isCategory(category[0]))) notFound()
   // The default category is the home page: one URL per page.
   if (category?.[0] === DEFAULT_CATEGORY) permanentRedirect(categoryPath(locale, DEFAULT_CATEGORY))
-  return <SiteShell>{children}</SiteShell>
+  return (
+    <SiteShell>
+      {children}
+      {/* A server component renders once per request: this is when the page was made. */}
+      {/* eslint-disable-next-line react-hooks/purity */}
+      <FreshPage renderedAt={Date.now()} />
+    </SiteShell>
+  )
 }

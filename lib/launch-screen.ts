@@ -25,18 +25,24 @@ import { useEffect } from "react"
 //                     own decoration starts moving again.
 //   (none)          — gone.
 //
+// The whole opening plays on the first start of the day; later starts that day
+// go from the hold straight to the finale (data-quick): the brand moment once,
+// and a quick start every other time.
+//
 // A tap during the intro skips to the exit. Reduced motion: hold, then a fade.
 
-/** The logo alone, at least, from the first paint (the person asked for 1–2 s). */
-const HOLD_MIN_MS = 1200
+/** The logo alone, at least, from the first paint. A fast device is ready
+ * sooner than this; a slow one holds until it is (up to HOLD_MAX_MS). */
+const HOLD_MIN_MS = 600
+const QUICK_HOLD_MIN_MS = 300
 /** From the first paint: the intro starts even if warming up has not finished. */
-const HOLD_MAX_MS = 4200
-/** The opening, until the logo leaves (globals.css: the last part ends at ~2.45 s). */
-const INTRO_MS = 2900
-/** The logo's flight into the header. It turns over once (1 s, globals.css),
+const HOLD_MAX_MS = 3000
+/** The opening, until the logo leaves (globals.css: the last part ends at ~1.5 s). */
+const INTRO_MS = 1650
+/** The logo's flight into the header. It turns over once (0.9 s, globals.css),
  * starting in place: the flight sets off a moment later. */
-const FLIGHT_DELAY_MS = 200
-const FLIGHT_MS = 1050
+const FLIGHT_DELAY_MS = 150
+const FLIGHT_MS = 900
 /** The cross-fade into the header's own logo. */
 const LANDING_MS = 220
 /** Consecutive smooth frames that count as "the main thread is free". */
@@ -60,8 +66,27 @@ async function quietFrames(count: number, max: number) {
 }
 
 function firstPaint(): number {
-  const paint = performance.getEntriesByType("paint").find((entry) => entry.name === "first-paint")
+  // Safari reports only first-contentful-paint.
+  const paints = performance.getEntriesByType("paint")
+  const paint = paints.find((entry) => entry.name === "first-paint") ?? paints.find((entry) => entry.name === "first-contentful-paint")
   return paint?.startTime ?? performance.now()
+}
+
+const SEEN_KEY = "splash-seen"
+
+/** Whether the whole opening has already played today (on this device). */
+function seenToday(): boolean {
+  try {
+    return localStorage.getItem(SEEN_KEY) === new Date().toDateString()
+  } catch {
+    return false
+  }
+}
+
+function markSeen() {
+  try {
+    localStorage.setItem(SEEN_KEY, new Date().toDateString())
+  } catch {}
 }
 
 /**
@@ -79,6 +104,8 @@ export function useLaunchScreen(prewarm: (signal: AbortSignal) => Promise<void>)
     const painted = firstPaint()
     const since = () => performance.now() - painted
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const quick = !still && seenToday()
+    if (quick) splash.dataset.quick = "1"
     const warmUp = new AbortController()
     let cancelled = false
     let skip: () => void = () => {}
@@ -98,13 +125,16 @@ export function useLaunchScreen(prewarm: (signal: AbortSignal) => Promise<void>)
       const end = () => {
         delete root.dataset.splash
         delete splash.dataset.phase
+        delete splash.dataset.quick
       }
       const gone = () => {
         if (cancelled) return
         phase("landed")
         delete root.dataset.splash
         window.setTimeout(() => {
-          if (!cancelled) delete splash.dataset.phase
+          if (cancelled) return
+          delete splash.dataset.phase
+          delete splash.dataset.quick
         }, LANDING_MS)
       }
       if (!still && stage && from && to && to.width > 0 && to.bottom > 0) {
@@ -132,10 +162,11 @@ export function useLaunchScreen(prewarm: (signal: AbortSignal) => Promise<void>)
       await Promise.race([Promise.all([warming, document.fonts?.ready]), wait(HOLD_MAX_MS - since())])
       warmUp.abort()
       await warming
-      await wait(HOLD_MIN_MS - since())
+      await wait((quick ? QUICK_HOLD_MIN_MS : HOLD_MIN_MS) - since())
       await quietFrames(QUIET_FRAMES, QUIET_MAX_MS)
       if (cancelled) return
-      if (still) return leave()
+      if (still || quick) return leave()
+      markSeen()
       phase("intro")
       await Promise.race([wait(INTRO_MS), skipped])
       leave()

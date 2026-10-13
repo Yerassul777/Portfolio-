@@ -4,7 +4,9 @@ import { AuthProvider } from "@/components/auth-provider"
 import { I18nProvider } from "@/components/i18n-provider"
 import { PwaSetup } from "@/components/install-app"
 import { SiteAnalytics } from "@/components/site-analytics"
+import { TodayProvider } from "@/components/today-provider"
 import { APP_MODE_SCRIPT } from "@/lib/app-mode"
+import { todayInAlmaty } from "@/lib/deadline"
 import { LAUNCH_SCREENS } from "@/lib/launch-screens"
 import { getDictionary } from "@/lib/i18n"
 import { DEFAULT_LOCALE, ENABLED_LOCALES, HTML_LANG, OG_LOCALE, isEnabledLocale, type Locale } from "@/lib/i18n/config"
@@ -152,7 +154,9 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
           </div>
         </div>
         <I18nProvider locale={locale} dictionary={getDictionary(locale)}>
-          <AuthProvider>{children}</AuthProvider>
+          <TodayProvider today={todayInAlmaty()}>
+            <AuthProvider>{children}</AuthProvider>
+          </TodayProvider>
         </I18nProvider>
         {/* The analytics script exists only on Vercel; elsewhere (Docker, CI, local) it is a 404 in the console. */}
         {process.env.VERCEL && <SiteAnalytics />}

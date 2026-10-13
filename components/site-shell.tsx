@@ -6,6 +6,7 @@ import { HeaderTools } from "@/components/header-tools"
 import { InstallAppButton } from "@/components/install-app"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useI18n } from "@/components/i18n-provider"
+import { useToday } from "@/components/today-provider"
 import { format } from "@/lib/i18n/format"
 
 function Logo({ small = false }: { small?: boolean }) {
@@ -33,6 +34,7 @@ function Logo({ small = false }: { small?: boolean }) {
  */
 export function SiteShell({ children }: { children: ReactNode }) {
   const { locale, t } = useI18n()
+  const today = useToday()
 
   return (
     // overflow-x: clip — nothing can make a phone page wider than the screen
@@ -100,7 +102,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <Logo small />
             <div>
               <div className="text-sm font-semibold text-white">{t.meta.siteName}</div>
-              <div className="text-xs text-gray-400">{format(t.footer.rights, { year: new Date().getFullYear() })}</div>
+              <div className="text-xs text-gray-400">{format(t.footer.rights, { year: today.slice(0, 4) })}</div>
             </div>
           </div>
           <div className="flex flex-col items-center gap-4 md:items-end">

@@ -2,6 +2,7 @@
 
 import { Calendar, Flame } from "lucide-react"
 import { useI18n } from "@/components/i18n-provider"
+import { useToday } from "@/components/today-provider"
 import { daysUntil, formatDeadline } from "@/lib/deadline"
 import { HTML_LANG } from "@/lib/i18n/config"
 import { plural } from "@/lib/i18n/format"
@@ -29,7 +30,7 @@ export function DeadlineBar({ days }: { days: number }) {
 
 export function DeadlineBadge({ deadline, long = false }: { deadline: string; long?: boolean }) {
   const { locale, t } = useI18n()
-  const days = daysUntil(deadline)
+  const days = daysUntil(deadline, useToday())
   const date = formatDeadline(deadline, long ? "long" : "short", HTML_LANG[locale])
   const closed = days !== null && days < 0
   const urgent = days !== null && days >= 0 && days <= URGENT_DAYS

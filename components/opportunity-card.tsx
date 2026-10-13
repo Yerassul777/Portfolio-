@@ -6,6 +6,7 @@ import { DeadlineBadge, DeadlineBar } from "@/components/deadline-badge"
 import { EntBadge } from "@/components/ent-score"
 import { FavoriteButton } from "@/components/favorite-button"
 import { useI18n } from "@/components/i18n-provider"
+import { useToday } from "@/components/today-provider"
 import { daysUntil } from "@/lib/deadline"
 import { opportunityPath } from "@/lib/site"
 import { filterValue } from "@/lib/i18n/filters"
@@ -27,7 +28,8 @@ export function OpportunityCard({ opportunity, onOpen, priority = false }: Oppor
   const { kind, image_url: image } = opportunity
   const city = opportunity.city ? filterValue(t, kind, "city", opportunity.city) : null
   const mode = opportunity.format ? filterValue(t, kind, "format", opportunity.format) : null
-  const days = opportunity.deadline ? daysUntil(opportunity.deadline) : null
+  const today = useToday()
+  const days = opportunity.deadline ? daysUntil(opportunity.deadline, today) : null
   const hasPassScore = opportunity.pass_score !== null && opportunity.pass_score !== undefined
 
   const grant = opportunity.grant_available && (

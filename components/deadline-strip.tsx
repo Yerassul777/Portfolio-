@@ -4,6 +4,7 @@ import { CalendarClock } from "lucide-react"
 import { isPlainClick } from "@/components/category-nav"
 import { DeadlineBar } from "@/components/deadline-badge"
 import { useI18n } from "@/components/i18n-provider"
+import { useToday } from "@/components/today-provider"
 import { catalogueHref, currentCatalogueQuery } from "@/lib/catalogue"
 import { daysUntil, formatDeadline } from "@/lib/deadline"
 import { HTML_LANG } from "@/lib/i18n/config"
@@ -22,6 +23,7 @@ const URGENT_DAYS = 14
  */
 export function DeadlineStrip({ items }: { items: Opportunity[] }) {
   const { locale, t } = useI18n()
+  const today = useToday()
   if (items.length === 0) return null
 
   return (
@@ -32,7 +34,7 @@ export function DeadlineStrip({ items }: { items: Opportunity[] }) {
       </h2>
       <ul className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
         {items.map((item) => {
-          const days = item.deadline ? daysUntil(item.deadline) : null
+          const days = item.deadline ? daysUntil(item.deadline, today) : null
           return (
             <li key={item.id} className="sm:w-[calc((100%-1.5rem)/3)]">
               <a

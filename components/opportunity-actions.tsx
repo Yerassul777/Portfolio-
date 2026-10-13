@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { CalendarPlus, Check, Loader2, Trophy } from "lucide-react"
 import { useI18n } from "@/components/i18n-provider"
+import { useToday } from "@/components/today-provider"
 import { haptic, openPanel } from "@/lib/app-mode"
 import { isDeadlinePassed } from "@/lib/deadline"
 import { usePortfolio } from "@/lib/portfolio"
@@ -67,7 +68,8 @@ export function ParticipateButton({ opportunity }: { opportunity: Opportunity })
 /** An .ics file with the deadline and two alerts; opens the calendar app on phones. */
 export function CalendarLink({ opportunity }: { opportunity: Opportunity }) {
   const { locale, t } = useI18n()
-  if (!opportunity.deadline || isDeadlinePassed(opportunity.deadline)) return null
+  const today = useToday()
+  if (!opportunity.deadline || isDeadlinePassed(opportunity.deadline, today)) return null
   return (
     <a
       href={`/api/ics/${encodeURIComponent(opportunity.slug)}${locale === "ru" ? "" : `?lang=${locale}`}`}
