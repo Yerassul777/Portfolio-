@@ -76,7 +76,7 @@ export function AppShell({ active, onSelect, focusRef, prewarm }: AppShellProps)
                     onSelect(id)
                   }}
                   className={cn(
-                    "flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors active:scale-95 rail:h-16 rail:rounded-2xl",
+                    "flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors outline-none active:scale-95 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400/60 rail:h-16 rail:rounded-2xl",
                     selected ? "text-emerald-300" : "text-gray-400 hover:text-gray-200 rail:hover:bg-white/[0.03]"
                   )}
                 >

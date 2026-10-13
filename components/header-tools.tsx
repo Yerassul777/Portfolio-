@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import dynamic from "next/dynamic"
 import { Bot, Briefcase } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -83,6 +83,14 @@ export function HeaderTools() {
   const aiRef = useRef<HTMLButtonElement>(null)
   const portfolioRef = useRef<HTMLButtonElement>(null)
   const appFocusRef = useRef<HTMLElement | null>(null)
+  // True while the launch screen renders the screens behind it (prewarm).
+  const prewarming = useRef(false)
+  // A closed screen gives focus back to the tab bar — but not the ones the
+  // warm-up closes: iOS would ring the Catalogue tab in blue for no reason.
+  const appReturnFocus = useMemo(
+    () => ({ get current() { return prewarming.current ? null : appFocusRef.current } }) as RefObject<HTMLElement | null>,
+    []
+  )
 
   useEffect(() => {
     // The app's launch screen warms everything up itself (prewarm below).
@@ -122,6 +130,7 @@ export function HeaderTools() {
     const aborted = new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }))
     const until = (task: Promise<unknown>) => Promise.race([task.then(noop, noop), aborted])
     await until(Promise.all([loadAI(), loadPortfolio()]))
+    prewarming.current = true
     setMounted({ ai: true, portfolio: true })
     // Straight to the state, not through show(): no history entries.
     for (const screen of PREWARM_SCREENS) {
@@ -134,6 +143,9 @@ export function HeaderTools() {
     setOpenState(null)
     await nextFrame()
     await nextFrame()
+    // Radix hands focus back a tick after a screen unmounts.
+    await new Promise((resolve) => window.setTimeout(resolve, 50))
+    prewarming.current = false
   }, [])
 
   /** Back to the page: the same as pressing Back. */
@@ -163,9 +175,11 @@ export function HeaderTools() {
   useEffect(() => onOpenPanel(({ panel, tab: requested }) => show(panel, requested)), [show])
 
   // In the app a screen covers the catalogue; the page under it must not
-  // scroll (the wheel and the scrollbar belong to the screen).
+  // scroll (the wheel and the scrollbar belong to the screen). Not for the
+  // warm-up's screens: switching the root's overflow makes iOS rebuild the
+  // whole window, a visible flicker under the launch screen.
   useEffect(() => {
-    if (!appMode) return
+    if (!appMode || prewarming.current) return
     const root = document.documentElement
     if (open) root.dataset.screen = "1"
     else delete root.dataset.screen
@@ -223,7 +237,7 @@ export function HeaderTools() {
           open={open?.panel === "ai"}
           onOpenChange={(next) => (next ? show("ai") : close())}
           onLeave={leave}
-          returnFocusRef={appMode ? appFocusRef : aiRef}
+          returnFocusRef={appMode ? appReturnFocus : aiRef}
           variant={variant}
         />
       )}
@@ -232,7 +246,7 @@ export function HeaderTools() {
           open={open?.panel === "portfolio"}
           onOpenChange={(next) => (next ? show("portfolio") : close())}
           onLeave={leave}
-          returnFocusRef={appMode ? appFocusRef : portfolioRef}
+          returnFocusRef={appMode ? appReturnFocus : portfolioRef}
           variant={variant}
           section={open?.panel === "portfolio" ? open.section : appMode ? "portfolio" : "all"}
           tab={open?.panel === "portfolio" ? open.tab : portfolioTab}

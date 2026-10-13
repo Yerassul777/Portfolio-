@@ -14,11 +14,13 @@ import { useEffect } from "react"
 //                     ones (`prewarm`).
 //   "intro"  intro  — starts only when the app is ready and the main thread
 //                     has been quiet for a few frames, so nothing competes
-//                     with the animation: the tile tilts in 3D, the orbit, the
+//                     with the animation: sparks gather into the tile, it
+//                     breathes and sends out a ring of light, the orbit, the
 //                     name and "by Team KAYA" appear. Transform and opacity
 //                     only: it runs on the compositor.
-//   "done"   exit   — the logo flies into the header's logo while the screen
-//                     fades (opacity of its own layer, no repaint).
+//   "done"   exit   — the logo turns over once, a coin with its thickness, as
+//                     it flies into the header's logo; the screen fades
+//                     (opacity of its own layer, no repaint).
 //   "landed"        — a short cross-fade into the real header logo; the page's
 //                     own decoration starts moving again.
 //   (none)          — gone.
@@ -29,10 +31,12 @@ import { useEffect } from "react"
 const HOLD_MIN_MS = 1200
 /** From the first paint: the intro starts even if warming up has not finished. */
 const HOLD_MAX_MS = 4200
-/** The opening, until the logo leaves (globals.css: the last part ends at ~2.35 s). */
-const INTRO_MS = 2700
-/** The logo's flight into the header. */
-const FLIGHT_MS = 900
+/** The opening, until the logo leaves (globals.css: the last part ends at ~2.45 s). */
+const INTRO_MS = 2900
+/** The logo's flight into the header. It turns over once (1 s, globals.css),
+ * starting in place: the flight sets off a moment later. */
+const FLIGHT_DELAY_MS = 200
+const FLIGHT_MS = 1050
 /** The cross-fade into the header's own logo. */
 const LANDING_MS = 220
 /** Consecutive smooth frames that count as "the main thread is free". */
@@ -109,7 +113,7 @@ export function useLaunchScreen(prewarm: (signal: AbortSignal) => Promise<void>)
         const dy = to.top + to.height / 2 - (from.top + from.height / 2)
         const flight = stage.animate(
           [{ transform: "translate(0, 0) scale(1)" }, { transform: `translate(${dx}px, ${dy}px) scale(${to.width / from.width})` }],
-          { duration: FLIGHT_MS, easing: "cubic-bezier(0.6, 0, 0.2, 1)", fill: "forwards" }
+          { duration: FLIGHT_MS, delay: FLIGHT_DELAY_MS, easing: "cubic-bezier(0.6, 0, 0.2, 1)", fill: "forwards" }
         )
         flight.finished.then(gone, gone)
       } else {
