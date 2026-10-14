@@ -488,6 +488,24 @@ html {
 #app-splash .splash-line:last-child {
   background: linear-gradient(270deg, transparent, rgba(110, 231, 183, 0.8));
 }
+/* Text nobody sees, for iOS. WebKit keeps a starting page off the screen
+   until it has "content" (LocalFrameView::checkAndDispatchDidReachVisuallyNonEmptyState):
+   over 200 characters of visible text in a font that is not still loading,
+   or images — else the end of parsing. The page is hidden under this screen,
+   and on an iPad with iPadOS 16 the first frame came only after the whole
+   HTML was parsed, the white between iOS's launch image and the app as long
+   (lib/diagnostics.ts: firstPaint after domInteractive on every start). The
+   app's description, visible to WebKit, transparent, clipped and in the
+   system font, is that content as soon as this screen is parsed. */
+#app-splash .splash-milestone {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  color: transparent;
+  font: 1px/1 system-ui, sans-serif;
+  pointer-events: none;
+}
 
 /* Started (any phase): layers of their own, prepared behind the still logo,
    so the finale has nothing left to set up. The sparks are drawn too (0.002

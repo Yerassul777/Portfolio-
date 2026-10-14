@@ -74,6 +74,7 @@ export const viewport: Viewport = {
 
 export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {
   const locale = await resolveLocale(params)
+  const t = getDictionary(locale)
 
   return (
     // suppressHydrationWarning: the script below adds data-app to <html> before React hydrates.
@@ -139,8 +140,12 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
               <span className="splash-line" />
             </div>
           </div>
+          {/* Never seen (globals.css): what lets iOS show the first frame before the whole page is parsed. */}
+          <p className="splash-milestone">
+            {t.meta.description} {t.hero.subtitle}
+          </p>
         </div>
-        <I18nProvider locale={locale} dictionary={getDictionary(locale)}>
+        <I18nProvider locale={locale} dictionary={t}>
           <TodayProvider today={todayInAlmaty()}>
             <AuthProvider>{children}</AuthProvider>
           </TodayProvider>
