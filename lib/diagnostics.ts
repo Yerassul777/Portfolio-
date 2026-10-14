@@ -103,9 +103,12 @@ function visible(nodes: Iterable<Node>): Node[] {
   })
 }
 
+/** Text with its invisible characters spelled out: "15 февр. 2027" and "15 февр. 2027" look the same. */
+const reveal = (text: string) => text.replace(/[^\S ]|[  -‏ ⁠﻿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`)
+
 function describe(node: Node | undefined): string {
   if (!node) return "(nothing)"
-  if (!(node instanceof Element)) return `"${cut(node.textContent?.trim(), 80)}"`
+  if (!(node instanceof Element)) return `"${reveal(cut(node.textContent?.trim(), 80))}"`
   const classes = typeof node.className === "string" ? node.className.trim().split(/\s+/).slice(0, 3).join(".") : ""
   return `<${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ""}${classes ? `.${classes}` : ""}> "${cut(node.textContent?.trim(), 80)}"`
 }
