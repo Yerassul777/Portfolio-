@@ -55,6 +55,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  env: {
+    // Which deploy a diagnostic report came from (lib/diagnostics.ts): the
+    // installed app can run a page cached from an older one.
+    NEXT_PUBLIC_BUILD_ID: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7),
+  },
   experimental: {
     // A styled 404 for URLs outside /[locale], which has no single root layout.
     globalNotFound: true,

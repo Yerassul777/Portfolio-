@@ -1,4 +1,5 @@
 import { createPublicClient, createUserClient } from "@/lib/supabase-server"
+import { clientKey, createRateLimit } from "@/lib/rate-limit"
 import {
   CATEGORY_LABELS,
   FILTER_CONFIGS,
@@ -46,44 +47,9 @@ const MAX_DESCRIPTION_CHARS = 300
 // A stalled upstream must not hold the function (and the reserved quota) open.
 const OPENAI_TIMEOUT_MS = 25_000
 
-type Bucket = { count: number; resetAt: number }
-
-/**
- * Best-effort in-memory limiter. On serverless each instance keeps its own
- * counters, so this throttles casual abuse rather than a distributed attack.
- * The hard ceilings are the spend limit in the OpenAI dashboard and the
- * AI_ASSISTANT_DISABLED kill switch below.
- */
-const buckets = new Map<string, Bucket>()
-
-function rateLimit(key: string): { allowed: boolean; retryAfter: number } {
-  const now = Date.now()
-
-  if (buckets.size > 10_000) {
-    for (const [k, v] of buckets) {
-      if (v.resetAt <= now) buckets.delete(k)
-    }
-  }
-
-  const bucket = buckets.get(key)
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-    return { allowed: true, retryAfter: 0 }
-  }
-
-  if (bucket.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, retryAfter: Math.ceil((bucket.resetAt - now) / 1000) }
-  }
-
-  bucket.count += 1
-  return { allowed: true, retryAfter: 0 }
-}
-
-function clientKey(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for")
-  if (forwarded) return forwarded.split(",")[0].trim()
-  return req.headers.get("x-real-ip") || "unknown"
-}
+// The hard ceilings are the spend limit in the OpenAI dashboard and the
+// AI_ASSISTANT_DISABLED kill switch below.
+const rateLimit = createRateLimit(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)
 
 type IncomingMessage = { role: "user" | "assistant"; content: string }
 

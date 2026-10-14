@@ -260,19 +260,18 @@ html {
    (none)    the very first frame: the still logo, the same picture as the iOS
              launch image, drawn flat — no layers of its own, nothing to
              prepare — so it is on screen as early as possible;
-   "hold"    the app has started and warms up behind it; the screen's layers
-             are prepared now, while nothing moves (nothing that could stutter
-             while the page is drawn underneath);
-   "intro"   once the app is ready: sparks of light gather into the tile, it
-             takes a breath and sends out a ring of light, a light runs across
-             its face, the orbit appears, the name rises letter by letter,
-             "by Team KAYA" last;
+   "hold"    the app has started; the screen's layers are prepared now, while
+             nothing moves (nothing that could stutter while the page is drawn
+             underneath);
+   "intro"   the same opening on every start, about a second: sparks of light
+             gather into the tile, it takes a breath and sends out a ring of
+             light, a light runs across its face, the orbit appears, the name
+             rises letter by letter, "by Team KAYA" last;
    "done"    the finale (the script's, one timeline): the tile turns over
              once, a coin with its thickness and the logo on both sides, as it
              flies into the header's socket, and lands there as the turn ends.
-   A later start on the same day (data-quick) skips the opening: hold, then
-   the finale at once. The screen takes every tap until the coin has landed;
-   then it is gone in that same frame.
+   The screen takes every tap until the coin has landed; then it is gone in
+   that same frame.
    Everything that moves is transform or opacity on its own layer: the
    compositor animates it even while the page is busy. Weak devices skip the
    heaviest layers; reduced motion gets the still logo and a fade. */
@@ -520,60 +519,50 @@ html {
   transform: translateZ(calc(var(--d) * -1.7px));
 }
 
-/* Intro. Times are from its start; it is complete at ~1.5 s. The animations
-   go on through the finale, so a tap that skips ahead never makes anything
-   jump. Never in a quick start: hidden, they would still be ticked by the
-   main thread on every frame of the finale. */
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-sparks i {
-  animation: splash-gather 0.55s cubic-bezier(0.55, 0, 0.85, 0.45) calc(var(--delay) * 0.6s) forwards;
+/* Intro. Times are from its start; it is complete at ~0.95 s (INTRO_MS in
+   lib/launch-screen.ts). The animations go on through the finale, so a tap
+   that skips ahead never makes anything jump. */
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-sparks i {
+  animation: splash-gather 0.36s cubic-bezier(0.55, 0, 0.85, 0.45) calc(var(--delay) * 0.4s) forwards;
 }
 /* Only in the intro: in the finale the lift is the script's, and two
    animations of one property on one element cannot run on the compositor. */
 #app-splash[data-phase="intro"] .splash-lift {
-  animation: splash-pulse 0.6s linear 0.5s both;
+  animation: splash-pulse 0.42s linear 0.32s both;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-wave {
-  animation: splash-wave 0.85s cubic-bezier(0.2, 0.7, 0.3, 1) 0.55s forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-wave {
+  animation: splash-wave 0.6s cubic-bezier(0.2, 0.7, 0.3, 1) 0.36s forwards;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-bloom {
-  animation: splash-bloom 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-bloom {
+  animation: splash-bloom 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.32s forwards;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-sheen {
-  animation: splash-sheen 0.7s cubic-bezier(0.45, 0, 0.55, 1) 0.62s forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-sheen {
+  animation: splash-sheen 0.5s cubic-bezier(0.45, 0, 0.55, 1) 0.42s forwards;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-orbit {
-  animation: splash-orbit-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.6s forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-orbit {
+  animation: splash-orbit-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.38s forwards;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-orbit-ring {
-  animation: splash-spin 3.6s linear 0.6s infinite;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-orbit-ring {
+  animation: splash-spin 3s linear 0.38s infinite;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-name span {
-  animation: splash-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) calc(0.55s + var(--i) * 0.035s) forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-name span {
+  animation: splash-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) calc(0.3s + var(--i) * 0.025s) forwards;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-credit-row {
-  animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.8s forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-credit-row {
+  animation: splash-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.48s forwards;
 }
-#app-splash:not([data-quick]):is([data-phase="intro"], [data-phase="done"]) .splash-line {
-  animation: splash-line 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
+#app-splash:is([data-phase="intro"], [data-phase="done"]) .splash-line {
+  animation: splash-line 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.54s forwards;
 }
 
-/* Finale: the halo and the words step aside (the words were never shown in a
-   quick start); the coin, its flight and the screen's fade are
-   lib/launch-screen.ts. */
-#app-splash[data-phase="done"] .splash-halo,
-#app-splash[data-phase="done"]:not([data-quick]) .splash-credit {
+/* Finale: the halo and the words step aside; the coin, its flight and the
+   screen's fade are lib/launch-screen.ts. */
+#app-splash[data-phase="done"] :is(.splash-halo, .splash-credit) {
   opacity: 0;
 }
-#app-splash[data-phase="done"]:not([data-quick]) .splash-name {
+#app-splash[data-phase="done"] .splash-name {
   opacity: 0;
   transform: translateY(-8px);
-}
-
-/* A later start the same day: no opening, the coin turns and flies at once.
-   Hidden, not removed: the name keeps its place, so the logo stays exactly
-   where the launch image has it. */
-#app-splash[data-quick] :is(.splash-sparks, .splash-wave, .splash-bloom, .splash-orbit, .splash-sheen, .splash-name, .splash-credit) {
-  visibility: hidden;
 }
 
 /* Weak devices: no sparks, thickness, orbit or bloom — the fewest layers. */

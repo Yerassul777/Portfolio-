@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { StatusPage, statusButtonClass } from "@/components/status-page"
+import { reportCaught } from "@/lib/diagnostics"
 import { ruError } from "@/lib/i18n/dictionaries/ru-error"
 import "./globals.css"
 
@@ -10,6 +11,7 @@ import "./globals.css"
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error)
+    reportCaught(error, "root")
   }, [error])
 
   return (

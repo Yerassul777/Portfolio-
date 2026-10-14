@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Plus, Trash2, AlertTriangle, ImageIcon, LogOut, ShieldAlert, RotateCcw } from "lucide-react"
 import { CATEGORIES, FILTER_CONFIGS, CATEGORY_LABELS, type Category, type Opportunity } from "@/lib/types"
 import useSWR, { mutate } from "swr"
+import { useIsAdmin } from "@/components/admin-gate"
 import { AuthForm } from "@/components/auth-form"
 import { useAuth } from "@/components/auth-provider"
 import { loadSupabase } from "@/lib/supabase-browser"
@@ -47,30 +48,12 @@ async function fetchAllSessions(): Promise<{ category: Category; items: AdminIte
 }
 
 export function AdminForm({ locale }: { locale: Locale }) {
-  const { user, loading: authLoading, signOut } = useAuth()
-  // Tagged with the user it was checked for; anything else reads as "not checked yet".
-  const [adminCheck, setAdminCheck] = useState<{ userId: string; isAdmin: boolean } | null>(null)
-  const isAdmin = user && adminCheck?.userId === user.id ? adminCheck.isAdmin : null
+  const { user, signOut } = useAuth()
+  const isAdmin = useIsAdmin()
   const [isLoading, setIsLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; category: Category; title: string } | null>(null)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-
-  // This only decides what to render. The database enforces the same rule on
-  // every write through RLS, so a tampered client still cannot write.
-  useEffect(() => {
-    if (!user) return
-    const userId = user.id
-    let cancelled = false
-    loadSupabase()
-      .then((supabase) => supabase.rpc("is_admin"))
-      .then(({ data, error }) => {
-        if (!cancelled) setAdminCheck({ userId, isAdmin: !error && data === true })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [user])
 
   const { data: allSessions, isLoading: sessionsLoading } = useSWR(isAdmin ? "admin-sessions" : null, fetchAllSessions)
 
@@ -236,7 +219,7 @@ export function AdminForm({ locale }: { locale: Locale }) {
 
   const totalSessions = allSessions?.reduce((acc, cat) => acc + cat.items.length, 0) || 0
 
-  if (authLoading || (user && isAdmin === null)) {
+  if (isAdmin === null) {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

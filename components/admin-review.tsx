@@ -1,14 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import useSWR from "swr"
 import { Check, ChevronDown, ExternalLink, Loader2, Pencil, Play, Plus, Quote, Trash2, TriangleAlert, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { getAccessToken, useAuth } from "@/components/auth-provider"
+import { AdminOnly } from "@/components/admin-gate"
+import { getAccessToken } from "@/components/auth-provider"
 import { formatDeadline } from "@/lib/deadline"
 import type { Locale } from "@/lib/i18n/config"
 import { loadSupabase } from "@/lib/supabase-browser"
@@ -100,40 +100,15 @@ function ConfidenceBadge({ value }: { value: number | null }) {
 }
 
 export function AdminReview({ locale }: { locale: Locale }) {
-  const { user, loading } = useAuth()
-  const [check, setCheck] = useState<{ userId: string; ok: boolean } | null>(null)
-  const isAdmin = user && check?.userId === user.id ? check.ok : null
+  return (
+    <AdminOnly locale={locale}>
+      <ReviewTabs locale={locale} />
+    </AdminOnly>
+  )
+}
+
+function ReviewTabs({ locale }: { locale: Locale }) {
   const [tab, setTab] = useState<"queue" | "runs" | "sources">("queue")
-
-  useEffect(() => {
-    if (!user) return
-    const userId = user.id
-    let cancelled = false
-    loadSupabase()
-      .then((s) => s.rpc("is_admin"))
-      .then(({ data, error }) => !cancelled && setCheck({ userId, ok: !error && data === true }))
-    return () => {
-      cancelled = true
-    }
-  }, [user])
-
-  if (loading || (user && isAdmin === null)) {
-    return (
-      <div role="status" className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    )
-  }
-  if (!user || !isAdmin) {
-    return (
-      <div className="space-y-3 py-16 text-center">
-        <p className="text-muted-foreground">Эта страница только для администраторов.</p>
-        <Button asChild variant="outline" className="h-11">
-          <Link href={`/${locale}/admin`}>Войти в админ-панель</Link>
-        </Button>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">

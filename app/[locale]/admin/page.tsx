@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, Radar } from "lucide-react"
+import { Activity, ArrowLeft, Radar } from "lucide-react"
 import { AdminForm } from "@/components/admin-form"
 import { Button } from "@/components/ui/button"
 import { isEnabledLocale } from "@/lib/i18n/config"
@@ -29,12 +29,20 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
             <h1 className="text-2xl font-bold text-foreground">Админ-панель</h1>
             <p className="text-sm text-muted-foreground">Добавление и удаление возможностей</p>
           </div>
-          <Button asChild variant="outline" className="ml-auto h-11">
-            <Link href={`/${locale}/admin/review`}>
-              <Radar className="h-4 w-4" />
-              Автопоиск
-            </Link>
-          </Button>
+          <div className="ml-auto flex flex-wrap justify-end gap-2">
+            <Button asChild variant="outline" className="h-11">
+              <Link href={`/${locale}/admin/review`}>
+                <Radar className="h-4 w-4" />
+                Автопоиск
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-11">
+              <Link href={`/${locale}/admin/diagnostics`}>
+                <Activity className="h-4 w-4" />
+                Диагностика
+              </Link>
+            </Button>
+          </div>
         </div>
       </header>
 
