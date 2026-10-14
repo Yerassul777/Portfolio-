@@ -26,26 +26,10 @@ export function HeroSection({ locale, t, compact = false, highlights = null }: H
 
   return (
     <section className={`relative overflow-hidden ${compact ? "py-12 sm:py-16" : "py-10 sm:py-16 lg:py-20"}`}>
-      {/* Glows as radial gradients: same look as blurred circles, none of the raster cost on phones. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0"
-        style={{
-          backgroundImage: [
-            "radial-gradient(circle at 78% 35%, rgba(16,185,129,0.1), transparent 460px)",
-            "radial-gradient(circle at 22% 75%, rgba(5,150,105,0.08), transparent 400px)",
-            "linear-gradient(to bottom right, #0a0f0d, #0d1a14, #0f261c)",
-          ].join(","),
-          // Fades out into whatever is behind it, so the hero has no bottom edge.
-          maskImage: "linear-gradient(to bottom, black 55%, transparent)",
-          WebkitMaskImage: "linear-gradient(to bottom, black 55%, transparent)",
-        }}
-      />
+      {/* No background of its own: the hero lies on the page's (site-shell.tsx), so there is no seam where it ends. */}
       {!compact && (
-        // Drifting lights behind everything.
+        // The one light of the hero, in the top right corner, drifting slowly.
         <div aria-hidden="true" className="hero-aurora">
-          <i />
-          <i />
           <i />
         </div>
       )}

@@ -47,7 +47,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </a>
 
       {/*
-        Static background: soft glows in the corners, no animation and no grid.
+        Static background: one soft glow, top right, no animation and no grid.
         The glows are radial gradients, not blurred circles: a CSS blur filter
         this size has to be re-rasterised on phones whenever the viewport
         changes, which showed up as stutter on the first scroll. The layer is
@@ -59,8 +59,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
         style={{
           backgroundImage: [
             "radial-gradient(circle at 100% 0%, rgba(16,185,129,0.08), transparent 480px)",
-            "radial-gradient(circle at 0% 100%, rgba(20,184,166,0.06), transparent 440px)",
-            "radial-gradient(ellipse at 50% 120%, rgba(16,185,129,0.06), transparent 60%)",
             "linear-gradient(to bottom, #0a0f0d, #0d1a14, #0a0f0d)",
           ].join(","),
         }}
