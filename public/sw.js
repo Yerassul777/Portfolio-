@@ -143,6 +143,9 @@ self.addEventListener("notificationclick", (event) => {
 })
 
 async function navigate(event, url) {
+  // How long this worker had been running when the page was asked for: near 0
+  // when it had to be started for this very request.
+  const boot = performance.now()
   const locale = LOCALES.find((code) => url.pathname === `/${code}` || url.pathname.startsWith(`/${code}/`))
   if (locale) event.waitUntil(rememberLocale(locale))
   if (url.search === "" && (url.pathname === "/" || url.pathname === `/${locale}`) && (await isColdStart())) {
@@ -151,10 +154,24 @@ async function navigate(event, url) {
       if (last) return Response.redirect(new URL(`/${last}`, self.location.origin).href, 307)
     } else {
       const page = await launchPage(event)
-      if (page) return page
+      if (page) return served(page, "launch", boot)
     }
   }
-  return networkFirstPage(event)
+  const [page, source] = await networkFirstPage(event)
+  return served(page, source, boot)
+}
+
+/**
+ * The page, labelled for the diagnostics (lib/diagnostics.ts reads the
+ * navigation's serverTiming): where it came from ("launch": the cache on a
+ * cold start, "network", "offline": a stored copy) and the worker's age.
+ * Redirects and errors pass as they are: they cannot be rebuilt.
+ */
+function served(response, source, boot) {
+  if (response.type === "opaqueredirect" || response.status !== 200) return response
+  const headers = new Headers(response.headers)
+  headers.append("Server-Timing", `sw;desc=${source}, sw-boot;dur=${Math.round(boot)}`)
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
 /** No window of the site is open: the app (or the site) is starting. */
@@ -195,6 +212,7 @@ async function lastLocale() {
   return LOCALES.includes(locale) ? locale : null
 }
 
+/** The page from the network, else a stored copy: [response, "network" | "offline"]. */
 async function networkFirstPage(event) {
   const { request } = event
   try {
@@ -210,16 +228,16 @@ async function networkFirstPage(event) {
         })
       )
     }
-    return response
+    return [response, "network"]
   } catch {
     const cache = await caches.open(PAGE_CACHE)
-    return (
+    const copy =
       (await cache.match(request)) ||
       // The same page with other filters is better than nothing.
       (await cache.match(request, { ignoreSearch: true })) ||
       (await cache.match(OFFLINE_URL)) ||
       Response.error()
-    )
+    return [copy, "offline"]
   }
 }
 

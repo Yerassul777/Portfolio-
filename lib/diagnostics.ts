@@ -248,6 +248,8 @@ export function reportLaunch(details: Record<string, unknown>) {
           parsed: ms(nav.domInteractive),
           loaded: ms(nav.loadEventEnd),
           bytes: nav.transferSize,
+          // From public/sw.js: where the page came from, and how long the worker had been running.
+          served: nav.serverTiming?.map((entry) => `${entry.name}${entry.description ? `:${entry.description}` : ""}=${Math.round(entry.duration)}`),
         },
         firstPaint: paint("first-paint") ?? paint("first-contentful-paint"),
         steps,
